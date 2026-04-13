@@ -35,12 +35,9 @@ public:
 
     
     Vector3(): p(Point3(0, 0, 0)), dx(0), dy(0), dz(0){
-
     }
     
-    Vector3(double x, double y, double z){
-        Vector3(Point3(0, 0, 0), x, y, z);
-    }
+    Vector3(double x, double y, double z): Vector3(Point3(0, 0, 0), x, y, z){}
     // automatically normalize direction
     Vector3(Point3 a, double x, double y, double z) : p(a), dx(x), dy(y), dz(z) {
         double length = sqrt(pow(dx, 2) + pow(dy, 2) + pow(dz, 2));
@@ -115,7 +112,7 @@ vector<Triangle*> constructSceneTriangles(vector<vector<int>> vertexBuffer, vect
     return sceneTriangles;
 }
 
-// assumes that we are positioning the camera further "back" on the y axis
+// assumes that we are positioning the camera further "back" on the z axis
 Point3* computeCameraPosition(Point3 leftCorner, Point3 rightCorner){
     double D = max(max(abs(rightCorner.x - leftCorner.x),abs(rightCorner.y - leftCorner.y)),abs(rightCorner.z - leftCorner.z));
     
@@ -238,7 +235,7 @@ Intersection* findIntersectingTriangle(Vector3 ray, vector<Triangle*> sceneTrian
 
         if (hit.hit && hit.distance < closestDistance) {
             closestDistance = hit.distance;
-            tri = tri;
+            tri = sceneTriangles[i];
             intersection = hit.point;
             // cout << "chose hit.point"
             //         << "(" << intersection.x << "," 

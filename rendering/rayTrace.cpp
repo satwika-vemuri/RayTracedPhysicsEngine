@@ -3,7 +3,7 @@
 #include <cmath>
 #include <algorithm>
 
-#include "rt1.h"
+#include "rayTrace.h"
 #include "ray.h"
 
 using std::vector;
@@ -116,10 +116,6 @@ HitInfo mollerTrumbore(Ray* ray, Triangle* tri) {
     double qvecX = tvecY * e1z - tvecZ * e1y;
     double qvecY = tvecZ * e1x - tvecX * e1z;
     double qvecZ = tvecX * e1y - tvecY * e1x;
-
-    
-    
-    
 
     // v barycentric coordinate
     double baryV = (ray->direction.x * qvecX + ray->direction.y * qvecY + ray->direction.z * qvecZ) * invDet;

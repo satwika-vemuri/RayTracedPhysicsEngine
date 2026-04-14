@@ -1,4 +1,4 @@
-#include <fstream>
+
 #include <cmath>
 #include <algorithm>
 #include <iostream>
@@ -7,14 +7,15 @@
 #include "light.h"
 #include "hitRecord.h"
 #include "color.h"
+#include "triangle.h"
 
 using std::vector;
 
 
 
-// ---- Shading constants ----
+// Shading Constants
 // X = left/right, Y = up/down, Z = depth
-// Sphere is centered at (500, 500, 500). Camera pulled back along -Z.
+// Sphere is centered at (500, 500, 500). Camera is along the z axis
 const Point3 CAMERAPOS(500.0f, 500.0f, -1500.0f);
 
 const Light  LIGHT(Point3(200.0f, -800.0f, 900.0f), Color{1.0f, 1.0f, 1.0f}, 1.0f);
@@ -53,8 +54,9 @@ Color phong(const HitRecord& pos) {
     return specular(pos) + ambient(pos) + lambertian(pos);
 }
 
-// ---- Main ----
 
+
+// testing function, thnx AI
 void generateSphere(
     vector<vector<int>>& vertexBuffer,
     vector<int>& indexBuffer,
@@ -116,6 +118,8 @@ void generateSphere(
     }
 }
 
+
+// No Phong Shading currently, I'll add it tomorrow.
 int main() {
     vector<vector<int>> vertexBuffer;
     vector<int> indexBuffer;

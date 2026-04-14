@@ -1,6 +1,6 @@
 #pragma once
 #include "vec3.h"
-#include "rt1.h"
+#include "rayTrace.h"
 
 class HitRecord{
     public:

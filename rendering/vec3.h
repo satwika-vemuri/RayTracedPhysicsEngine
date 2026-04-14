@@ -38,6 +38,9 @@ struct Vec3 {
 };
 
 inline Vec3 operator*(double s, const Vec3& v) { return v * s; }
+inline Vec3 operator*(const Vec3& u, const Vec3& v) {
+    return Vec3(u.x * v.x, u.y * v.y, u.z* v.z);
+}
 
 inline Vec3 cross(const Vec3& u, const Vec3& v) {
     return Vec3(u.y*v.z - u.z*v.y,
@@ -46,11 +49,6 @@ inline Vec3 cross(const Vec3& u, const Vec3& v) {
 }
 
 inline Vec3 reflection(const Vec3& v, const Vec3& n) { return 2 * v.dot(n) * n - v; }
-inline Vec3 operator*(const Vec3& u, const Vec3& v) {
-    return Vec3(u.x * v.x, u.y * v.y, u.z* v.z);
-}
-
-
 
 // point3 is just an alias for Vec3, but useful for geometric clarity in the code.
 using Point3 = Vec3;

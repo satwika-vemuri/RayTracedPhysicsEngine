@@ -32,9 +32,9 @@ struct HitInfo {
     HitInfo() : hit(false), point(), distance(-1.0) {}
 };
 
-std::vector<Triangle*> constructSceneTriangles(std::vector<std::vector<int>> vertexBuffer, 
-                                                std::vector<int> indexBuffer, 
-                                                std::vector<std::vector<int>> normalBuffer);
+std::vector<Triangle*> constructSceneTriangles(std::vector<std::vector<int>>& vertexBuffer, 
+                                                std::vector<int>& indexBuffer, 
+                                                std::vector<std::vector<int>>& normalBuffer);
 
 Point3* computeCameraPosition(Point3 leftCorner, Point3 rightCorner);
-TriangleGrid* findSurfaceIntersections(Point3* cameraPos, std::vector<Triangle*> sceneTriangles);
+TriangleGrid* findSurfaceIntersections(Point3* cameraPos, std::vector<Triangle*>& sceneTriangles);

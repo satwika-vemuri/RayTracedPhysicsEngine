@@ -10,7 +10,7 @@ using std::vector;
 
 const double PI = 2 * acos(0.0);
 
-vector<Triangle*> constructSceneTriangles(vector<vector<int>>& vertexBuffer, vector<int>& indexBuffer, vector<vector<int>>& normalBuffer){
+vector<Triangle*> constructSceneTriangles(vector<vector<double>>& vertexBuffer, vector<double>& indexBuffer, vector<vector<double>>& normalBuffer){
     vector<Triangle*> sceneTriangles;
 
     for(size_t i = 0; i < indexBuffer.size()-2; i+=3){

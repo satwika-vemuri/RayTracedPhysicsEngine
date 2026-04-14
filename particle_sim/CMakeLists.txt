@@ -13,6 +13,7 @@ find_package(SFML 2.5 COMPONENTS graphics window system REQUIRED)
 add_executable(particle_sim
     src/SPH.cpp
     src/main.cpp
+    src/March.cpp
 )
 
 target_include_directories(particle_sim PRIVATE src)

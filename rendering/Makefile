@@ -6,7 +6,7 @@ CXX = g++
 CXXFLAGS = -std=c++17 -Wall -Wextra -pedantic -O2
 
 TARGET = render
-SRC = main.cpp raytrace2.cpp
+SRC = main.cpp rayTrace.cpp
 
 all: $(TARGET)
 

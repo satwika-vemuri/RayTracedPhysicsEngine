@@ -10,10 +10,10 @@ using std::vector;
 
 const double PI = 2 * acos(0.0);
 
-vector<Triangle*> constructSceneTriangles(vector<vector<int>> vertexBuffer, vector<int> indexBuffer, vector<vector<int>> normalBuffer){
+vector<Triangle*> constructSceneTriangles(vector<vector<int>>& vertexBuffer, vector<int>& indexBuffer, vector<vector<int>>& normalBuffer){
     vector<Triangle*> sceneTriangles;
 
-    for(int i = 0; i < indexBuffer.size()-2; i+=3){
+    for(size_t i = 0; i < indexBuffer.size()-2; i+=3){
         //cout <<"a index: " << i  << " iB size: " << indexBuffer.size() << " iB value:" << indexBuffer[i] << " vB size: " << vertexBuffer.size() << endl;
         Point3 v1(vertexBuffer[indexBuffer[i]][0], vertexBuffer[indexBuffer[i]][1], vertexBuffer[indexBuffer[i]][2]);
         Point3 v2(vertexBuffer[indexBuffer[i+1]][0], vertexBuffer[indexBuffer[i+1]][1], vertexBuffer[indexBuffer[i+1]][2]);
@@ -143,12 +143,12 @@ HitInfo mollerTrumbore(Ray* ray, Triangle* tri) {
     return HitInfo(true, intersection, rayT);
 }
 
-Intersection* findIntersectingTriangle(Ray ray, vector<Triangle*> sceneTriangles){
+Intersection* findIntersectingTriangle(Ray ray, vector<Triangle*>& sceneTriangles){
     double closestDistance = INFINITY;
     Triangle* tri = nullptr;
     Point3 intersection(0, 0, 0);
 
-    for(int i = 0; i < sceneTriangles.size(); i++){
+    for(size_t i = 0; i < sceneTriangles.size(); i++){
         HitInfo hit = mollerTrumbore(&ray, sceneTriangles[i]);
         // if(hit.hit){
         //     cout << "TRUE" << endl;
@@ -171,7 +171,7 @@ Intersection* findIntersectingTriangle(Ray ray, vector<Triangle*> sceneTriangles
 
 }
 
-TriangleGrid* findSurfaceIntersections(Point3* cameraPos, vector<Triangle*> sceneTriangles){
+TriangleGrid* findSurfaceIntersections(Point3* cameraPos, vector<Triangle*>& sceneTriangles){
 
     // define image plane metrics
     double imagePlaneDistance = 1;

@@ -1,0 +1,33 @@
+#Thnx Claude
+
+# Object files
+*.o
+*.obj
+
+# Executables
+*.out
+*.exe
+render
+
+# Build artifacts
+*.dSYM/
+build/
+cmake-build-*/
+
+# macOS
+.DS_Store
+
+# VS Code
+.vscode/
+
+# Output images
+*.ppm
+*.png
+*.jpg
+
+# Temporary files
+*.log
+*.tmp
+
+# Makefile artifacts
+*.d

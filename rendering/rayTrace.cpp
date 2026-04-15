@@ -6,11 +6,13 @@
 #include "rayTrace.h"
 #include "ray.h"
 
+#include <iostream>
+
 using std::vector;
 
 const double PI = 2 * acos(0.0);
 
-vector<Triangle*> constructSceneTriangles(vector<vector<double>>& vertexBuffer, vector<double>& indexBuffer, vector<vector<double>>& normalBuffer){
+vector<Triangle*> constructSceneTriangles(vector<vector<double>>& vertexBuffer, vector<int>& indexBuffer, vector<vector<double>>& normalBuffer){
     vector<Triangle*> sceneTriangles;
 
     for(size_t i = 0; i < indexBuffer.size()-2; i+=3){
@@ -211,6 +213,8 @@ TriangleGrid* findSurfaceIntersections(Point3* cameraPos, vector<Triangle*>& sce
                 //     << "" << (*triangleIntersections)[r][c]->intersection.z << "" 
                 //     << ")" << std::endl;
             }
+
+            std::cout << "current ray: " << r * IMAGE_WIDTH + c << "\n";
             
         }
     }

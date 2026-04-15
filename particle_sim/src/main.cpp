@@ -5,14 +5,16 @@
 #include <sstream>
 #include <iomanip>
 #include <cmath>
+
 #include "March.h"
 #include "SPH.h"
+#include "rayTraceTest.h"
 
 // camera
 struct Camera {
     double theta = 0.4; // rotation around Y
     double phi = 0.0; // rotation around X
-    double dist  = 7.0; // distance from origin
+    double dist  = 4.0; // distance from origin
     double focal = 620.0; // focal length
 
     // world to camera space via two rotations
@@ -152,12 +154,14 @@ void drawMesh(sf::RenderWindow& win, const Camera& cam,
 int main() {
     constexpr unsigned WIN_W = 1280, WIN_H = 720;
 
+    /*
     sf::RenderWindow window(
         sf::VideoMode(WIN_W, WIN_H),
         "SPH Simulator",
         sf::Style::Default
     );
     window.setFramerateLimit(60);
+    */
 
     SPH sim;
     printf("Number of particles: %ld\n", sim.particles.size());
@@ -193,7 +197,8 @@ int main() {
     std::vector<std::vector<double>> normalBuffer;
 
     // main loop
-    while (window.isOpen()) {
+    for (int i = 0; i < 60; ++i) {
+        /*
         sf::Event ev;
         while (window.pollEvent(ev)) {
             switch (ev.type) {
@@ -222,6 +227,7 @@ int main() {
                 break;
             }
         }
+        */
 
         // physics
         if (!paused)
@@ -229,16 +235,29 @@ int main() {
 
 	vertexBuffer.clear();
 	indexBuffer.clear();
+	normalBuffer.clear();
 
 	buildScalarField(sim.particles);
-	marchCubes(vertexBuffer, indexBuffer, vertexBuffer);
+	marchCubes(vertexBuffer, indexBuffer, normalBuffer);
 
+    static int iq = 0;
+
+    traceAndShade(vertexBuffer, indexBuffer, normalBuffer,
+    sim.BMIN,sim.BMIN,sim.BMIN, sim.BMAX,sim.BMAX,sim.BMAX, iq);
+
+    printf("iteration: %d\n", i);
+    ++i;
+
+    /*
         // render
         window.clear(sf::Color(8, 12, 22));
         drawBox(window, cam, (double)WIN_W, (double)WIN_H, boxCorners, boxEdges);
         drawParticles(window, cam, sim.particles, (double)WIN_W, (double)WIN_H);
 	drawMesh(window, cam, vertexBuffer, indexBuffer, (double)WIN_W, (double)WIN_H);
         window.display();
+    }
+
+    */
     }
 
     return 0;

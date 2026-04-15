@@ -4,14 +4,13 @@
 #include <iostream>
 #include <fstream>
 
-#include "vec3.h"
-#include "light.h"
-#include "hitRecord.h"
-#include "color.h"
-#include "triangle.h"
+#include "../../rendering/vec3.h"
+#include "../../rendering/light.h"
+#include "../../rendering/hitRecord.h"
+#include "../../rendering/color.h"
+#include "../../rendering/triangle.h"
 
 using std::vector;
-
 
 
 // Shading Constants
@@ -62,7 +61,7 @@ Color phong(const HitRecord& pos) {
 // testing function, thnx AI
 void generateSphere(
     vector<vector<double>>& vertexBuffer,
-    vector<double>& indexBuffer,
+    vector<int>& indexBuffer,
     vector<vector<double>>& normalBuffer
 ) {
     int latSteps = 20;
@@ -115,15 +114,17 @@ void generateSphere(
 
 
 // No Phong Shading currently, I'll add it tomorrow.
-int main() {
-    vector<vector<double>> vertexBuffer;
-    vector<double> indexBuffer;
-    vector<vector<double>> normalBuffer;
+void traceAndShade(vector<vector<double>>& vertexBuffer,
+    vector<int>& indexBuffer,
+    vector<vector<double>>& normalBuffer,
+    double lx, double ly, double lz,
+    double rx, double ry, double rz, int i)
+    {
 
     generateSphere(vertexBuffer, indexBuffer, normalBuffer);
 
-    Point3 leftCorner(0, 0, 0);
-    Point3 rightCorner(1000, 1000, 1000);
+    Point3 leftCorner(lx, ly, lz);
+    Point3 rightCorner(rx, ry, lz);
 
     vector<Triangle*> sceneTriangles =
         constructSceneTriangles(vertexBuffer, indexBuffer, normalBuffer);
@@ -133,13 +134,16 @@ int main() {
     TriangleGrid* intersections =
         findSurfaceIntersections(cameraPos, sceneTriangles);
 
-    std::cout << "P3\n" << IMAGE_WIDTH << ' ' << IMAGE_HEIGHT << "\n255\n";
+    std::string filename = "image_" + std::to_string(i) + ".ppm";
+    std::ofstream outfile(filename);
+
+    outfile << "P3\n" << IMAGE_WIDTH << ' ' << IMAGE_HEIGHT << "\n255\n";
 
     for (int r = 0; r < IMAGE_HEIGHT; r++) {
         for (int c = 0; c < IMAGE_WIDTH; c++) {
             Intersection* hit = (*intersections)[r][c];
             HitRecord rec = HitRecord::toHitRecord(hit);
-            write_Color(std::cout, phong(rec));
+            write_Color(outfile, phong(rec));
         }
     }
 
@@ -155,6 +159,4 @@ int main() {
     for (Triangle* tri : sceneTriangles) {
         delete tri;
     }
-
-    return 0;
 }

@@ -33,7 +33,7 @@ struct HitInfo {
 };
 
 std::vector<Triangle*> constructSceneTriangles(std::vector<std::vector<double>>& vertexBuffer, 
-                                                std::vector<double>& indexBuffer, 
+                                                std::vector<int>& indexBuffer, 
                                                 std::vector<std::vector<double>>& normalBuffer);
 
 Point3* computeCameraPosition(Point3 leftCorner, Point3 rightCorner);

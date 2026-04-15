@@ -86,7 +86,7 @@ struct Intersection {
  *                    indices [1, 2, 4] form one triangle, indices [0, 1, 3] form another triangle
  * @param normalBuffer normal vector at each vertex (normalBuffer[0] = normal for vertex with index n in vertexBuffer)
  */
-vector<Triangle*> constructSceneTriangles(vector<vector<int>> vertexBuffer, vector<int> indexBuffer, vector<vector<int>> normalBuffer){
+vector<Triangle*> constructSceneTriangles(vector<vector<double>> vertexBuffer, vector<double> indexBuffer, vector<vector<double>> normalBuffer){
     vector<Triangle*> sceneTriangles;
 
     for(size_t i = 0; i < indexBuffer.size()-2; i+=3){

@@ -66,6 +66,6 @@ struct HitInfo {
 
 
 
-vector<Triangle*> constructSceneTriangles(vector<vector<int>> vertexBuffer, vector<int> indexBuffer, vector<vector<int>> normalBuffer);
+vector<Triangle*> constructSceneTriangles(vector<vector<double>> vertexBuffer, vector<double> indexBuffer, vector<vector<double>> normalBuffer);
 Point3* computeCameraPosition(Point3 leftCorner, Point3 rightCorner);
 TriangleGrid* findSurfaceIntersections(Point3* cameraPos, vector<Triangle*> sceneTriangles);

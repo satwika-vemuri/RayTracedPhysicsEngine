@@ -5,6 +5,7 @@
 #include <sstream>
 #include <iomanip>
 #include <cmath>
+#include "March.h"
 #include "SPH.h"
 
 // camera
@@ -107,6 +108,46 @@ void drawParticles(sf::RenderWindow& win, const Camera& cam,
     }
 }
 
+void drawMesh(sf::RenderWindow& win, const Camera& cam,
+              const std::vector<std::vector<double>>& vertexBuffer,
+              const std::vector<int>& indexBuffer,
+              double W, double H)
+{
+    if (vertexBuffer.empty()) return;
+
+    sf::VertexArray lines(sf::Lines);
+    sf::Color wireColor(0, 200, 255, 120);
+
+    for (int t = 0; t < (int)indexBuffer.size(); t += 3) {
+        int i0 = indexBuffer[t];
+        int i1 = indexBuffer[t + 1];
+        int i2 = indexBuffer[t + 2];
+
+        auto toScreen = [&](int idx) -> sf::Vector2f {
+            Vec3 world = {
+                vertexBuffer[idx][0],
+                vertexBuffer[idx][1],
+                vertexBuffer[idx][2]
+            };
+            return cam.project(cam.toCam(world), W, H);
+        };
+
+        sf::Vector2f p0 = toScreen(i0);
+        sf::Vector2f p1 = toScreen(i1);
+        sf::Vector2f p2 = toScreen(i2);
+
+        lines.append(sf::Vertex(p0, wireColor));
+        lines.append(sf::Vertex(p1, wireColor));
+
+        lines.append(sf::Vertex(p1, wireColor));
+        lines.append(sf::Vertex(p2, wireColor));
+
+        lines.append(sf::Vertex(p2, wireColor));
+        lines.append(sf::Vertex(p0, wireColor));
+    }
+
+    win.draw(lines);
+}
 // main
 int main() {
     constexpr unsigned WIN_W = 1280, WIN_H = 720;
@@ -147,6 +188,10 @@ int main() {
     // 5 × Dt(0.001 s) = 0.005 s of simulated time per visual frame
     constexpr int SUBSTEPS = 5;
 
+    std::vector<std::vector<double>> vertexBuffer;
+    std::vector<int> indexBuffer;
+    std::vector<std::vector<double>> normalBuffer;
+
     // main loop
     while (window.isOpen()) {
         sf::Event ev;
@@ -182,10 +227,17 @@ int main() {
         if (!paused)
             for (int s = 0; s < SUBSTEPS; ++s) sim.step();
 
+	vertexBuffer.clear();
+	indexBuffer.clear();
+
+	buildScalarField(sim.particles);
+	marchCubes(vertexBuffer, indexBuffer, vertexBuffer);
+
         // render
         window.clear(sf::Color(8, 12, 22));
         drawBox(window, cam, (double)WIN_W, (double)WIN_H, boxCorners, boxEdges);
         drawParticles(window, cam, sim.particles, (double)WIN_W, (double)WIN_H);
+	drawMesh(window, cam, vertexBuffer, indexBuffer, (double)WIN_W, (double)WIN_H);
         window.display();
     }
 

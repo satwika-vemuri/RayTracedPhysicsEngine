@@ -24,6 +24,8 @@ const Color  DARK           = {0.0f, 0.0f, 0.0f};
 const float  AMBIENT        = 0.3f;
 const float  REFLECTIVENESS = 0.9f;
 const float  SHININESS      = 60.0f;
+const double M_PI = 2 * acos(0.0);
+
 
 //Phong shading
 
@@ -58,9 +60,9 @@ Color phong(const HitRecord& pos) {
 
 // testing function, thnx AI
 void generateSphere(
-    vector<vector<int>>& vertexBuffer,
-    vector<int>& indexBuffer,
-    vector<vector<int>>& normalBuffer
+    vector<vector<double>>& vertexBuffer,
+    vector<double>& indexBuffer,
+    vector<vector<double>>& normalBuffer
 ) {
     int latSteps = 20;
     int lonSteps = 20;
@@ -78,11 +80,7 @@ void generateSphere(
             double y = cy + radius * sin(theta) * sin(phi);
             double z = cz + radius * cos(theta);
 
-            vertexBuffer.push_back({
-                (int)x,
-                (int)y,
-                (int)z
-            });
+            vertexBuffer.push_back({x,y,z});
 
             double nx = x - cx;
             double ny = y - cy;
@@ -90,11 +88,7 @@ void generateSphere(
 
             double len = sqrt(nx * nx + ny * ny + nz * nz);
 
-            normalBuffer.push_back({
-                (int)(nx / len * 1000.0),
-                (int)(ny / len * 1000.0),
-                (int)(nz / len * 1000.0)
-            });
+            normalBuffer.push_back({(nx / len * 1000.0),(ny / len * 1000.0),(nz / len * 1000.0)});
         }
     }
 
@@ -121,9 +115,9 @@ void generateSphere(
 
 // No Phong Shading currently, I'll add it tomorrow.
 int main() {
-    vector<vector<int>> vertexBuffer;
-    vector<int> indexBuffer;
-    vector<vector<int>> normalBuffer;
+    vector<vector<double>> vertexBuffer;
+    vector<double> indexBuffer;
+    vector<vector<double>> normalBuffer;
 
     generateSphere(vertexBuffer, indexBuffer, normalBuffer);
 

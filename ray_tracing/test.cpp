@@ -8,7 +8,7 @@
 
 using namespace std;
 
-const double PI = 2 * acos(0.0);
+const double M_PI = 2 * acos(0.0);
 
 TriangleGrid g;
 
@@ -18,9 +18,9 @@ TriangleGrid g;
 using namespace std;
 
 void generateSphere(
-    vector<vector<int>>& vertexBuffer,
-    vector<int>& indexBuffer,
-    vector<vector<int>>& normalBuffer
+    vector<vector<double>>& vertexBuffer,
+    vector<double>& indexBuffer,
+    vector<vector<double>>& normalBuffer
 ) {
     int latSteps = 20;
     int lonSteps = 20;
@@ -40,11 +40,7 @@ void generateSphere(
             double z = cz + radius * cos(theta);
 
             // vertex
-            vertexBuffer.push_back({
-                (int)x,
-                (int)y,
-                (int)z
-            });
+            vertexBuffer.push_back({x,y,z});
 
             // normal (unit vector from center)
             double nx = x - cx;
@@ -53,11 +49,7 @@ void generateSphere(
 
             double len = sqrt(nx*nx + ny*ny + nz*nz);
 
-            normalBuffer.push_back({
-                (int)(nx / len * 1000),
-                (int)(ny / len * 1000),
-                (int)(nz / len * 1000)
-            });
+            normalBuffer.push_back({(nx / len * 1000),(ny / len * 1000),(nz / len * 1000)});
         }
     }
 
@@ -86,9 +78,9 @@ void generateSphere(
 }
 
 int main(){
-    vector<vector<int>> vertexBuffer;
-    vector<int> indexBuffer;
-    vector<vector<int>> normalBuffer;
+    vector<vector<double>> vertexBuffer;
+    vector<double> indexBuffer;
+    vector<vector<double>> normalBuffer;
 
     // Generate test sphere
     generateSphere(vertexBuffer, indexBuffer, normalBuffer);

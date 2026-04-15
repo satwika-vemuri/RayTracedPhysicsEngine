@@ -16,7 +16,7 @@ using std::vector;
 // Shading Constants
 // X = left/right, Y = up/down, Z = depth
 // Sphere is centered at (500, 500, 500). Camera is along the z axis
-const Point3 CAMERAPOS(500.0f, 500.0f, -1500.0f);
+
 
 const Light  LIGHT(Point3(200.0f, 100.0f, 100.0f), Color{1.0f, 1.0f, 1.0f}, 1.0f);
 const Color  SURFACE_COLOR  = {0.05f, 0.15f, 0.4f};  // blue water
@@ -24,7 +24,8 @@ const Color  DARK           = {0.0f, 0.0f, 0.0f};
 const float  AMBIENT        = 0.3f;
 const float  REFLECTIVENESS = 0.9f;
 const float  SHININESS      = 60.0f;
-const double M_PI = 2 * acos(0.0);
+// Reverted the name of this since MPI is used in many libraries
+const double PI = 2 * acos(0.0);
 
 
 //Phong shading
@@ -42,9 +43,9 @@ Color ambient(const HitRecord& pos) {
     return SURFACE_COLOR * AMBIENT * LIGHT.brightness();
 }
 
-Color specular(const HitRecord& pos) {
+Color specular(const HitRecord& pos, const Point3& cameraPos) {
     if (!pos.is_hit()) return DARK;
-    Vec3 V = (CAMERAPOS - pos.coords()).normalized();
+    Vec3 V = (cameraPos - pos.coords()).normalized();
     Vec3 N = pos.normal().normalized();
     Vec3 L = (LIGHT.coords() - pos.coords()).normalized();
     Vec3 R = reflection(L, N);
@@ -52,8 +53,8 @@ Color specular(const HitRecord& pos) {
            pow(std::max(0.0, R.dot(V)), SHININESS);
 }
 
-Color phong(const HitRecord& pos) {
-    return specular(pos) + ambient(pos) + lambertian(pos);
+Color phong(const HitRecord& pos, const Point3& cameraPos) {
+    return specular(pos, cameraPos) + ambient(pos) + lambertian(pos);
 }
 
 
@@ -71,10 +72,10 @@ void generateSphere(
     double radius = 200.0;
 
     for (int i = 0; i <= latSteps; i++) {
-        double theta = M_PI * i / latSteps;
+        double theta = PI * i / latSteps;
 
         for (int j = 0; j <= lonSteps; j++) {
-            double phi = 2.0 * M_PI * j / lonSteps;
+            double phi = 2.0 * PI * j / lonSteps;
 
             double x = cx + radius * sin(theta) * cos(phi);
             double y = cy + radius * sin(theta) * sin(phi);
@@ -138,7 +139,7 @@ int main() {
         for (int c = 0; c < IMAGE_WIDTH; c++) {
             Intersection* hit = (*intersections)[r][c];
             HitRecord rec = HitRecord::toHitRecord(hit);
-            write_Color(std::cout, phong(rec));
+            write_Color(std::cout, phong(rec, *cameraPos));
         }
     }
 

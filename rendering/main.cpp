@@ -113,6 +113,24 @@ void generateSphere(
     }
 }
 
+Color getAntialiasedColor(int r, int c, Color* rayColors) {
+    std::vector<Color*> consideredColors(4); // always 5 max
+    // all adjacent rays are considered
+    consideredColors[0] = (r - 1 >= 0 ? &rayColors[(r - 1) * IMAGE_WIDTH + c] : nullptr);
+    consideredColors[1] = (r + 1 < IMAGE_HEIGHT ? &rayColors[(r + 1) * IMAGE_WIDTH + c] : nullptr);
+    consideredColors[2] = (c - 1 >= 0 ? &rayColors[r * IMAGE_WIDTH + (c - 1)] : nullptr);
+    consideredColors[3] = (c + 1 < IMAGE_WIDTH ? &rayColors[r * IMAGE_WIDTH + (c + 1)] : nullptr);
+    // average these with weight of main ray as .5 and weight of the sum
+    // of all other rays as .5
+    Color final_col;
+    for (auto* color : consideredColors) {
+        if (color != nullptr) final_col = final_col + *color;
+    }
+    final_col = final_col/4.0;
+    final_col = final_col * 0.5 + rayColors[r * IMAGE_WIDTH + c] * 0.5;
+    return final_col;
+}
+
 
 // No Phong Shading currently, I'll add it tomorrow.
 int main() {
@@ -135,11 +153,19 @@ int main() {
 
     std::cout << "P3\n" << IMAGE_WIDTH << ' ' << IMAGE_HEIGHT << "\n255\n";
 
+    // Cache colors to enable anti-aliasing
+    Color* rayColors = new Color[IMAGE_HEIGHT * IMAGE_WIDTH];
     for (int r = 0; r < IMAGE_HEIGHT; r++) {
         for (int c = 0; c < IMAGE_WIDTH; c++) {
             Intersection* hit = (*intersections)[r][c];
             HitRecord rec = HitRecord::toHitRecord(hit);
-            write_Color(std::cout, phong(rec, *cameraPos));
+            rayColors[r * IMAGE_WIDTH + c] = phong(rec, *cameraPos);
+        }
+    }
+
+    for (int r = 0; r < IMAGE_HEIGHT; r++) {
+        for (int c = 0; c < IMAGE_WIDTH; c++) {
+            write_Color(std::cout, getAntialiasedColor(r, c, rayColors));
         }
     }
 

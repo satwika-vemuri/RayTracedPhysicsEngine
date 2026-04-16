@@ -59,6 +59,7 @@ void buildScalarField(const std::vector<Particle> &particles) {
                         }
                 }
         }
+	zeroifyBoundary();
 }
 /*
  * Part 2-5 of Mesh Generation

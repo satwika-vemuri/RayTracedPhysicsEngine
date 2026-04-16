@@ -108,6 +108,33 @@ inline Vec3 gradientNormal(Vec3 worldPos) {
         return (-grad).normalized();
 }
 
+// O(GRID_N^2), negligible vs the O(GRID_N^3 * k) scalar field build
+// Just 6 * 64^2 = ~24k float writes, no hash queries
+//
+// Particles pack against the walls so boundary corners end up above ISOVALUE
+// Marching cubes sees cubeIndex==255 (all inside) and skips those cells entirely,
+// no surface on the sides. Zeroing the outermost shell forces the inside to outside
+// crossing that marching cubes needs to actually emit triangles there.
+//
+// The "cleaner" alternative is extending the grid one cell past BMIN/BMAX so
+// those outer corners naturally read ~0. But that means touching GRID_N, CELL,
+// and the grid origin in buildScalarField, cornersTo3d, and gradientNormal.
+// Not worth it, SPH already keeps particles off the wall face, so those ghost
+// cells would always be 0 anyway. I just prefer doing an in place fix at a very small cost
+// instead of introducing more complexity to the codebase
+inline void zeroifyBoundary() {
+        for (int a = 0; a <= GRID_N; ++a) {
+                for (int b = 0; b <= GRID_N; ++b) {
+                        scalar[0][a][b] = 0.0;      // left face   (i = 0)
+                        scalar[GRID_N][a][b] = 0.0; // right face  (i = GRID_N)
+                        scalar[a][0][b] = 0.0;      // bottom face (j = 0)
+                        scalar[a][GRID_N][b] = 0.0; // top face    (j = GRID_N)
+                        scalar[a][b][0] = 0.0;      // back face   (k = 0)
+                        scalar[a][b][GRID_N] = 0.0; // front face  (k = GRID_N)
+                }
+        }
+}
+
 // cred: https://paulbourke.net/geometry/polygonise/
 // Tables:
 

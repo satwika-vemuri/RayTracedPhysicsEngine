@@ -236,7 +236,7 @@ int main() {
         // render
         window.clear(sf::Color(8, 12, 22));
         drawBox(window, cam, (double)WIN_W, (double)WIN_H, boxCorners, boxEdges);
-        drawParticles(window, cam, sim.particles, (double)WIN_W, (double)WIN_H);
+        // drawParticles(window, cam, sim.particles, (double)WIN_W, (double)WIN_H);
 	drawMesh(window, cam, vertexBuffer, indexBuffer, (double)WIN_W, (double)WIN_H);
         window.display();
     }

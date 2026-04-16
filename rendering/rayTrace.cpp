@@ -4,6 +4,7 @@
 #include <algorithm>
 
 #include "rayTrace.h"
+#include "hitRecord.h"
 #include "ray.h"
 
 using std::vector;
@@ -38,7 +39,7 @@ vector<Triangle*> constructSceneTriangles(vector<vector<double>>& vertexBuffer, 
 }
 
 // assumes that we are positioning the camera further "back" on the z axis
-Point3* computeCameraPosition(Point3 leftCorner, Point3 rightCorner){
+Point3 computeCameraPosition(Point3 leftCorner, Point3 rightCorner){
     double D = std::max(std::max(abs(rightCorner.x - leftCorner.x),abs(rightCorner.y - leftCorner.y)),abs(rightCorner.z - leftCorner.z));
     
     // cameraPos = center + (0, 0, -2D)
@@ -47,11 +48,11 @@ Point3* computeCameraPosition(Point3 leftCorner, Point3 rightCorner){
     double z = (leftCorner.z + rightCorner.z)/2 - 2*D; 
     
 
-    return new Point3(x, y, z);
+    return Point3(x, y, z);
     
 }
 
-HitInfo mollerTrumbore(Ray* ray, Triangle* tri) {
+HitRecord mollerTrumbore(const Ray& ray, Triangle& tri) {
     // cout << "mt w/ point: " 
     //     << "(" << ray->p.x << "," 
     //     << "" << ray->p.y << "," 
@@ -75,19 +76,19 @@ HitInfo mollerTrumbore(Ray* ray, Triangle* tri) {
 
     // Triangle edge vectors
     // (v2-v1)
-    double e1x = tri->v2.x - tri->v1.x;
-    double e1y = tri->v2.y - tri->v1.y;
-    double e1z = tri->v2.z - tri->v1.z;
+    double e1x = tri.v2.x - tri.v1.x;
+    double e1y = tri.v2.y - tri.v1.y;
+    double e1z = tri.v2.z - tri.v1.z;
 
     // (v3-v1)
-    double e2x = tri->v3.x - tri->v1.x;
-    double e2y = tri->v3.y - tri->v1.y;
-    double e2z = tri->v3.z - tri->v1.z;
+    double e2x = tri.v3.x - tri.v1.x;
+    double e2y = tri.v3.y - tri.v1.y;
+    double e2z = tri.v3.z - tri.v1.z;
 
     // pvec = ray.direction x E2
-    double pvecX = ray->direction.y * e2z - ray->direction.z * e2y;
-    double pvecY = ray->direction.z * e2x - ray->direction.x * e2z;
-    double pvecZ = ray->direction.x * e2y - ray->direction.y * e2x;
+    double pvecX = ray.direction.y * e2z - ray.direction.z * e2y;
+    double pvecY = ray.direction.z * e2x - ray.direction.x * e2z;
+    double pvecZ = ray.direction.x * e2y - ray.direction.y * e2x;
 
     // det = E1 · pvec
     double det = e1x * pvecX + e1y * pvecY + e1z * pvecZ;
@@ -95,21 +96,21 @@ HitInfo mollerTrumbore(Ray* ray, Triangle* tri) {
     // no hit (ray is close to parallel to triangle)
     //cout << "det: " << det << endl;
     if (fabs(det) < EPSILON) {
-        return HitInfo(false, Point3(0, 0, 0), -1);
+        return HitRecord();
     }
 
     double invDet = 1.0 / det;
 
     // tvec = ray.origin - V1
-    double tvecX = ray->origin.x - tri->v1.x;
-    double tvecY = ray->origin.y - tri->v1.y;
-    double tvecZ = ray->origin.z - tri->v1.z;
+    double tvecX = ray.origin.x - tri.v1.x;
+    double tvecY = ray.origin.y - tri.v1.y;
+    double tvecZ = ray.origin.z - tri.v1.z;
 
     // u barycentric coordinate
     double u = (tvecX * pvecX + tvecY * pvecY + tvecZ * pvecZ) * invDet;
     //cout << "u: " << u << endl;
     if (u < 0.0 || u > 1.0) { // no intersection
-        return HitInfo(false, Point3(0, 0, 0), -1);
+        return HitRecord();
     }
 
     // qvec = tvec x E1
@@ -118,60 +119,58 @@ HitInfo mollerTrumbore(Ray* ray, Triangle* tri) {
     double qvecZ = tvecX * e1y - tvecY * e1x;
 
     // v barycentric coordinate
-    double baryV = (ray->direction.x * qvecX + ray->direction.y * qvecY + ray->direction.z * qvecZ) * invDet;
+    double baryV = (ray.direction.x * qvecX + ray.direction.y * qvecY + ray.direction.z * qvecZ) * invDet;
     //cout << "v: " << baryV << endl;
     
     if (baryV < 0.0 || u + baryV > 1.0) {  // no intersection
-        return HitInfo(false, Point3(0, 0, 0), -1);
+        return HitRecord();
     }
 
     // ray parameter t
     double rayT = (e2x * qvecX + e2y * qvecY + e2z * qvecZ) * invDet;
     //cout << "t: " << rayT << endl;
     if (rayT < EPSILON) { // no intersection
-        return HitInfo(false, Point3(0, 0, 0), -1);
+        return HitRecord();
     }
 
 
     // Compute intersection point
     Point3 intersection(
-        ray->origin.x + rayT * ray->direction.x,
-        ray->origin.y + rayT * ray->direction.y,
-        ray->origin.z + rayT * ray->direction.z
+        ray.origin.x + rayT * ray.direction.x,
+        ray.origin.y + rayT * ray.direction.y,
+        ray.origin.z + rayT * ray.direction.z
     );
 
-    return HitInfo(true, intersection, rayT);
+    return HitRecord(&tri, intersection, rayT,  u, baryV );
 }
 
-Intersection* findIntersectingTriangle(Ray ray, vector<Triangle*>& sceneTriangles){
+
+HitRecord findIntersectingTriangle(const Ray& ray, const vector<Triangle*>& sceneTriangles){
     double closestDistance = INFINITY;
-    Triangle* tri = nullptr;
-    Point3 intersection(0, 0, 0);
+    HitRecord closestHit;
 
     for(size_t i = 0; i < sceneTriangles.size(); i++){
-        HitInfo hit = mollerTrumbore(&ray, sceneTriangles[i]);
+        HitRecord hit = mollerTrumbore(ray, *sceneTriangles[i]);
         // if(hit.hit){
         //     cout << "TRUE" << endl;
         // }
 
         if (hit.hit && hit.distance < closestDistance) {
             closestDistance = hit.distance;
-            tri = sceneTriangles[i];
-            intersection = hit.point;
+            closestHit = hit;
             // cout << "chose hit.point"
             //         << "(" << intersection.x << "," 
             //         << "" << intersection.y << "," 
             //         << "" << intersection.z << "," 
             //         << ")" << endl;
-        }
-        
+        } 
     }
 
-    return new Intersection(tri, intersection);
-
+    return closestHit;
 }
 
-TriangleGrid* findSurfaceIntersections(Point3* cameraPos, vector<Triangle*>& sceneTriangles){
+
+TriangleGrid findSurfaceIntersections(const Point3& cameraPos,const vector<Triangle*>& sceneTriangles){
 
     // define image plane metrics
     double imagePlaneDistance = 1;
@@ -179,7 +178,7 @@ TriangleGrid* findSurfaceIntersections(Point3* cameraPos, vector<Triangle*>& sce
     double planeHeight = 2*imagePlaneDistance*tan(theta/2);
     double planeWidth =  ((double)IMAGE_WIDTH / IMAGE_HEIGHT) * planeHeight;
     
-    TriangleGrid* triangleIntersections = new TriangleGrid();
+    TriangleGrid triangleIntersections;
     for(int r = 0; r < IMAGE_HEIGHT; r++){
         for(int c = 0; c < IMAGE_WIDTH; c++){
             
@@ -200,10 +199,10 @@ TriangleGrid* findSurfaceIntersections(Point3* cameraPos, vector<Triangle*>& sce
             double m_z = imagePlaneDistance;
 
             //slight bug fix here
-            Point3 m(cameraPos->x + m_x, cameraPos->y + m_y, cameraPos->z + m_z); // world-space point on image plane
-            Vec3 dir(m.x - cameraPos->x,  m.y - cameraPos->y, m.z - cameraPos->z);
-            Ray ray(*cameraPos, dir); // ray direction = m - camera
-            (*triangleIntersections)[r][c] = findIntersectingTriangle(ray, sceneTriangles);
+            Point3 m(cameraPos.x + m_x, cameraPos.y + m_y, cameraPos.z + m_z); // world-space point on image plane
+            Vec3 dir(m.x - cameraPos.x,  m.y - cameraPos.y, m.z - cameraPos.z);
+            Ray ray(cameraPos, dir); // ray direction = m - camera
+            triangleIntersections[r][c] = findIntersectingTriangle(ray, sceneTriangles);
             if (r % 100 == 0 && c % 100 == 0) {
                 // std::cout << "Intersection of (" << r << "," << c << "): "
                 //     << "(" << (*triangleIntersections)[r][c]->intersection.x << "," 

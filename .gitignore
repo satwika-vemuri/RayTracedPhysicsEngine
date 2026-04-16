@@ -31,3 +31,5 @@ cmake-build-*/
 
 # Makefile artifacts
 *.d
+
+*.txt

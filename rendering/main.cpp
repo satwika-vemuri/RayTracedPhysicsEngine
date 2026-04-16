@@ -8,6 +8,7 @@
 #include "hitRecord.h"
 #include "color.h"
 #include "triangle.h"
+#include "rayTrace.h"
 
 using std::vector;
 
@@ -31,23 +32,23 @@ const double PI = 2 * acos(0.0);
 //Phong shading
 
 Color lambertian(const HitRecord& pos) {
-    if (!pos.is_hit()) return DARK;
-    Vec3 N = pos.normal().normalized();
-    Vec3 L = (LIGHT.coords() - pos.coords()).normalized();
-    float diffuse = std::max(0.0, N.dot(L));
+    if (!pos.hit) return DARK;
+    Vec3 N = pos.interpolatedNormal();
+    Vec3 L = (LIGHT.coords() - pos.point).normalized();
+    double diffuse = std::max(0.0, N.dot(L));
     return SURFACE_COLOR * LIGHT.color() * LIGHT.brightness() * diffuse;
 }
 
 Color ambient(const HitRecord& pos) {
-    if (!pos.is_hit()) return DARK;
+    if (!pos.hit) return DARK;
     return SURFACE_COLOR * AMBIENT * LIGHT.brightness();
 }
 
 Color specular(const HitRecord& pos, const Point3& cameraPos) {
-    if (!pos.is_hit()) return DARK;
-    Vec3 V = (cameraPos - pos.coords()).normalized();
-    Vec3 N = pos.normal().normalized();
-    Vec3 L = (LIGHT.coords() - pos.coords()).normalized();
+    if (!pos.hit) return DARK;
+    Vec3 V = (cameraPos - pos.point).normalized();
+    Vec3 N = pos.interpolatedNormal();
+    Vec3 L = (LIGHT.coords() - pos.point).normalized();
     Vec3 R = reflection(L, N);
     return LIGHT.color() * LIGHT.brightness() * REFLECTIVENESS *
            pow(std::max(0.0, R.dot(V)), SHININESS);
@@ -146,9 +147,9 @@ int main() {
     vector<Triangle*> sceneTriangles =
         constructSceneTriangles(vertexBuffer, indexBuffer, normalBuffer);
 
-    Point3* cameraPos = computeCameraPosition(leftCorner, rightCorner);
+    Point3 cameraPos = computeCameraPosition(leftCorner, rightCorner);
 
-    TriangleGrid* intersections =
+    TriangleGrid intersections =
         findSurfaceIntersections(cameraPos, sceneTriangles);
 
     std::cout << "P3\n" << IMAGE_WIDTH << ' ' << IMAGE_HEIGHT << "\n255\n";
@@ -157,9 +158,8 @@ int main() {
     Color* rayColors = new Color[IMAGE_HEIGHT * IMAGE_WIDTH];
     for (int r = 0; r < IMAGE_HEIGHT; r++) {
         for (int c = 0; c < IMAGE_WIDTH; c++) {
-            Intersection* hit = (*intersections)[r][c];
-            HitRecord rec = HitRecord::toHitRecord(hit);
-            rayColors[r * IMAGE_WIDTH + c] = phong(rec, *cameraPos);
+            HitRecord hitRec = intersections[r][c];
+            rayColors[r * IMAGE_WIDTH + c] = phong(hitRec, cameraPos);
         }
     }
 
@@ -169,18 +169,12 @@ int main() {
         }
     }
 
-    delete cameraPos;
-
-    for (int r = 0; r < IMAGE_HEIGHT; r++) {
-        for (int c = 0; c < IMAGE_WIDTH; c++) {
-            delete (*intersections)[r][c];
-        }
-    }
-    delete intersections;
-
     for (Triangle* tri : sceneTriangles) {
         delete tri;
     }
+
+    
+    delete[] rayColors;
 
     return 0;
 }

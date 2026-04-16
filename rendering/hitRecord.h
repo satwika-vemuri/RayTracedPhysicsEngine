@@ -1,31 +1,38 @@
 #pragma once
 #include "vec3.h"
-#include "rayTrace.h"
+#include "triangle.h"
 
-class HitRecord{
+struct HitRecord{
     public:
-        HitRecord() {}
-        HitRecord(Point3 coords, Vec3 normal, bool hit) : 
-                coords_(coords), normal_(normal), hit_(hit) {}
+
+        bool hit;
+        Triangle* tri;
+        double distance;
+        double u;
+        double v;
+        Point3 point;
         
-        const Point3& coords() const {return coords_;}
-        const Vec3& normal() const {return normal_;}
-        bool is_hit() const {return hit_;}
+        HitRecord(): hit(false), tri(nullptr), distance(-1.0), u(0.0), v(0.0), point(Point3(0,0,0)) {}
 
-        static HitRecord toHitRecord(const Intersection* hit) {
-            if (hit == nullptr || hit->tri == nullptr) {
-                return HitRecord(Point3(0,0,0), Vec3(0,0,0), false);
-            }
+        HitRecord(Triangle* t, const Point3& p, double dist, double bu, double bv)
+        : hit(true), tri(t), distance(dist), u(bu), v(bv), point(p) {}
 
-            return HitRecord(
-                hit->intersection,
-                hit->tri->triangleNormal.normalized(),
-                true
-            );
+
+
+        double w() const {
+        return 1.0 - u - v;
         }
-        
-    private:
-        Point3 coords_;
-        Vec3 normal_;
-        bool hit_;
+
+        Vec3 interpolatedNormal() const {
+            if(!hit || !tri) {return Vec3(0,0,0);}
+
+            return (tri->n1 * w() +
+                    tri->n2 * u + 
+                    tri->n3 * v).normalized();
+        }
+
+        Vec3 flatNormal() const {
+        if (!hit || tri == nullptr) return Vec3(0, 0, 0);
+        return tri->triangleNormal.normalized();
+        }
 };

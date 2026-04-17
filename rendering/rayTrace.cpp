@@ -1,37 +1,33 @@
 
+#include <cstdint>
 #include <vector>
-#include <cmath>
 #include <algorithm>
 
 #include "rayTrace.h"
 #include "hitRecord.h"
 #include "ray.h"
+#include "consts.h"
 
 using std::vector;
 
-const double PI = 2 * acos(0.0);
+vector<Triangle> constructSceneTriangles(const vector<Point3>& vertexBuffer, const vector<uint32_t>& indexBuffer, const vector<Vec3>& normalBuffer){
+    vector<Triangle> sceneTriangles;
+    sceneTriangles.reserve(indexBuffer.size()/3);
+    
 
-vector<Triangle*> constructSceneTriangles(vector<vector<double>>& vertexBuffer, vector<double>& indexBuffer, vector<vector<double>>& normalBuffer){
-    vector<Triangle*> sceneTriangles;
+    for(size_t i = 0; i+3 <= indexBuffer.size(); i+=3){
+        Point3 v1 = vertexBuffer[indexBuffer[i]];
+        Point3 v2 = vertexBuffer[indexBuffer[i + 1]];
+        Point3 v3 = vertexBuffer[indexBuffer[i + 2]];
 
-    for(size_t i = 0; i < indexBuffer.size()-2; i+=3){
-        //cout <<"a index: " << i  << " iB size: " << indexBuffer.size() << " iB value:" << indexBuffer[i] << " vB size: " << vertexBuffer.size() << endl;
-        Point3 v1(vertexBuffer[indexBuffer[i]][0], vertexBuffer[indexBuffer[i]][1], vertexBuffer[indexBuffer[i]][2]);
-        Point3 v2(vertexBuffer[indexBuffer[i+1]][0], vertexBuffer[indexBuffer[i+1]][1], vertexBuffer[indexBuffer[i+1]][2]);
-        Point3 v3(vertexBuffer[indexBuffer[i+2]][0], vertexBuffer[indexBuffer[i+2]][1], vertexBuffer[indexBuffer[i+2]][2]);
-
-        //cout <<"b index: " << i  << " iB size: " << indexBuffer.size() << "iB value:" << indexBuffer[i] << " vB size: " << vertexBuffer.size() << endl;
-        Vec3 n1(normalBuffer[indexBuffer[i]][0], normalBuffer[indexBuffer[i]][1], normalBuffer[indexBuffer[i]][2]);
-        Vec3 n2(normalBuffer[indexBuffer[i+1]][0], normalBuffer[indexBuffer[i+1]][1], normalBuffer[indexBuffer[i+1]][2]);
-        Vec3 n3(normalBuffer[indexBuffer[i+2]][0], normalBuffer[indexBuffer[i+2]][1], normalBuffer[indexBuffer[i+2]][2]);
-        Vec3 tn((n1+n2+n3)/3);
-
+        Vec3 n1 = normalBuffer[indexBuffer[i]];
+        Vec3 n2 = normalBuffer[indexBuffer[i + 1]];
+        Vec3 n3 = normalBuffer[indexBuffer[i + 2]];
         //cout << "creating triangle" << endl;
-        Triangle* t = new Triangle(v1, v2, v3);
-        t->n1 = n1;
-        t->n2 = n2;
-        t->n3 = n3;
-        t->triangleNormal = tn;
+        Triangle t = Triangle(v1, v2, v3);
+        t.n1 = n1;
+        t.n2 = n2;
+        t.n3 = n3;
         sceneTriangles.push_back(t);
     }
 
@@ -39,8 +35,8 @@ vector<Triangle*> constructSceneTriangles(vector<vector<double>>& vertexBuffer, 
 }
 
 // assumes that we are positioning the camera further "back" on the z axis
-Point3 computeCameraPosition(Point3 leftCorner, Point3 rightCorner){
-    double D = std::max(std::max(abs(rightCorner.x - leftCorner.x),abs(rightCorner.y - leftCorner.y)),abs(rightCorner.z - leftCorner.z));
+Point3 computeCameraPosition(const Point3& leftCorner, const Point3& rightCorner){
+    double D = std::max(std::max(std::abs(rightCorner.x - leftCorner.x),std::abs(rightCorner.y - leftCorner.y)),std::abs(rightCorner.z - leftCorner.z));
     
     // cameraPos = center + (0, 0, -2D)
     double x = (leftCorner.x + rightCorner.x)/2; 
@@ -52,7 +48,7 @@ Point3 computeCameraPosition(Point3 leftCorner, Point3 rightCorner){
     
 }
 
-HitRecord mollerTrumbore(const Ray& ray, Triangle& tri) {
+HitRecord mollerTrumbore(const Ray& ray, const Triangle& tri) {
     // cout << "mt w/ point: " 
     //     << "(" << ray->p.x << "," 
     //     << "" << ray->p.y << "," 
@@ -95,7 +91,7 @@ HitRecord mollerTrumbore(const Ray& ray, Triangle& tri) {
 
     // no hit (ray is close to parallel to triangle)
     //cout << "det: " << det << endl;
-    if (fabs(det) < EPSILON) {
+    if (std::fabs(det) < EPSILON) {
         return HitRecord();
     }
 
@@ -145,12 +141,12 @@ HitRecord mollerTrumbore(const Ray& ray, Triangle& tri) {
 }
 
 
-HitRecord findIntersectingTriangle(const Ray& ray, const vector<Triangle*>& sceneTriangles){
+HitRecord findIntersectingTriangle(const Ray& ray, const vector<Triangle>& sceneTriangles){
     double closestDistance = INFINITY;
     HitRecord closestHit;
 
     for(size_t i = 0; i < sceneTriangles.size(); i++){
-        HitRecord hit = mollerTrumbore(ray, *sceneTriangles[i]);
+        HitRecord hit = mollerTrumbore(ray, sceneTriangles[i]);
         // if(hit.hit){
         //     cout << "TRUE" << endl;
         // }
@@ -170,7 +166,7 @@ HitRecord findIntersectingTriangle(const Ray& ray, const vector<Triangle*>& scen
 }
 
 
-TriangleGrid findSurfaceIntersections(const Point3& cameraPos,const vector<Triangle*>& sceneTriangles){
+TriangleGrid findSurfaceIntersections(const Point3& cameraPos,const vector<Triangle>& sceneTriangles){
 
     // define image plane metrics
     double imagePlaneDistance = 1;
@@ -178,7 +174,7 @@ TriangleGrid findSurfaceIntersections(const Point3& cameraPos,const vector<Trian
     double planeHeight = 2*imagePlaneDistance*tan(theta/2);
     double planeWidth =  ((double)IMAGE_WIDTH / IMAGE_HEIGHT) * planeHeight;
     
-    TriangleGrid triangleIntersections;
+    TriangleGrid triangleIntersections(IMAGE_WIDTH*IMAGE_HEIGHT);
     for(int r = 0; r < IMAGE_HEIGHT; r++){
         for(int c = 0; c < IMAGE_WIDTH; c++){
             
@@ -202,18 +198,17 @@ TriangleGrid findSurfaceIntersections(const Point3& cameraPos,const vector<Trian
             Point3 m(cameraPos.x + m_x, cameraPos.y + m_y, cameraPos.z + m_z); // world-space point on image plane
             Vec3 dir(m.x - cameraPos.x,  m.y - cameraPos.y, m.z - cameraPos.z);
             Ray ray(cameraPos, dir); // ray direction = m - camera
-            triangleIntersections[r][c] = findIntersectingTriangle(ray, sceneTriangles);
-            if (r % 100 == 0 && c % 100 == 0) {
-                // std::cout << "Intersection of (" << r << "," << c << "): "
-                //     << "(" << (*triangleIntersections)[r][c]->intersection.x << "," 
-                //     << "" << (*triangleIntersections)[r][c]->intersection.y << "," 
-                //     << "" << (*triangleIntersections)[r][c]->intersection.z << "" 
-                //     << ")" << std::endl;
-            }
+            triangleIntersections[r*IMAGE_WIDTH + c] = findIntersectingTriangle(ray, sceneTriangles);
+            // if (r % 100 == 0 && c % 100 == 0) {
+            //     std::cout << "Intersection of (" << r << "," << c << "): "
+            //         << "(" << (*triangleIntersections)[r][c]->intersection.x << "," 
+            //         << "" << (*triangleIntersections)[r][c]->intersection.y << "," 
+            //         << "" << (*triangleIntersections)[r][c]->intersection.z << "" 
+            //         << ")" << std::endl;
+            // }
             
         }
     }
 
-    
     return triangleIntersections;
 }

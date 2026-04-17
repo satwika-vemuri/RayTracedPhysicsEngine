@@ -6,7 +6,7 @@ struct HitRecord{
     public:
 
         bool hit;
-        Triangle* tri;
+        const Triangle* tri;
         double distance;
         double u;
         double v;
@@ -14,9 +14,8 @@ struct HitRecord{
         
         HitRecord(): hit(false), tri(nullptr), distance(-1.0), u(0.0), v(0.0), point(Point3(0,0,0)) {}
 
-        HitRecord(Triangle* t, const Point3& p, double dist, double bu, double bv)
+        HitRecord(const Triangle* t, const Point3& p, double dist, double bu, double bv)
         : hit(true), tri(t), distance(dist), u(bu), v(bv), point(p) {}
-
 
 
         double w() const {
@@ -31,8 +30,5 @@ struct HitRecord{
                     tri->n3 * v).normalized();
         }
 
-        Vec3 flatNormal() const {
-        if (!hit || tri == nullptr) return Vec3(0, 0, 0);
-        return tri->triangleNormal.normalized();
-        }
+
 };

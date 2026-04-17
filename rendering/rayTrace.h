@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <cstdlib>
 #include <algorithm>
 #include <array>
@@ -8,17 +9,16 @@
 #include "triangle.h"
 #include "vec3.h"
 #include "hitRecord.h"
+#include "consts.h"
 
 
-constexpr int IMAGE_WIDTH = 600;
-constexpr int IMAGE_HEIGHT = 800;
 
 
-using TriangleGrid = std::array<std::array<HitRecord, IMAGE_WIDTH>, IMAGE_HEIGHT>;
+using TriangleGrid = std::vector<HitRecord>;
 
-std::vector<Triangle*> constructSceneTriangles(std::vector<std::vector<double>>& vertexBuffer, 
-                                                std::vector<double>& indexBuffer, 
-                                                std::vector<std::vector<double>>& normalBuffer);
+std::vector<Triangle> constructSceneTriangles( const std::vector<Point3>& vertexBuffer, 
+                                                const std::vector<uint32_t>& indexBuffer, 
+                                                const std::vector<Vec3>& normalBuffer);
 
-Point3 computeCameraPosition(Point3 leftCorner, Point3 rightCorner);
-TriangleGrid findSurfaceIntersections(const Point3& cameraPos, const std::vector<Triangle*>& sceneTriangles);
+Point3 computeCameraPosition(const Point3& leftCorner,const Point3& rightCorner);
+TriangleGrid findSurfaceIntersections(const Point3& cameraPos, const std::vector<Triangle>& sceneTriangles);

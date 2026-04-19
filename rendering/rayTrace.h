@@ -8,6 +8,7 @@
 
 #include "triangle.h"
 #include "vec3.h"
+#include "ray.h"
 #include "hitRecord.h"
 #include "consts.h"
 
@@ -21,4 +22,5 @@ std::vector<Triangle> constructSceneTriangles( const std::vector<Point3>& vertex
                                                 const std::vector<Vec3>& normalBuffer);
 
 Point3 computeCameraPosition(const Point3& leftCorner,const Point3& rightCorner);
-TriangleGrid findSurfaceIntersections(const Point3& cameraPos, const std::vector<Triangle>& sceneTriangles);
+HitRecord findIntersectingTriangle(const Ray& ray, const std::vector<Triangle>& sceneTriangles);
+

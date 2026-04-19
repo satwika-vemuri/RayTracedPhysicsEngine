@@ -7,6 +7,7 @@
 #include <string>
 
 #include "vec3.h"
+#include "ray.h"
 #include "light.h"
 #include "hitRecord.h"
 #include "color.h"
@@ -191,6 +192,30 @@ Color getAntialiasedColor(int r, int c, Color* rayColors) {
     return final_col;
 }
 
+Color colorPixel(int r, int c, const Point3& cameraPos,const vector<Triangle>& sceneTriangles){
+    // define image plane metrics
+    double imagePlaneDistance = 1;
+    double theta = PI/4; // 45 degree FOV
+    double planeHeight = 2*imagePlaneDistance*tan(theta/2);
+    double planeWidth =  ((double)IMAGE_WIDTH / IMAGE_HEIGHT) * planeHeight;
+
+    double u = (c + 0.5) / IMAGE_WIDTH;
+    double v = (r + 0.5) / IMAGE_HEIGHT;
+
+    // map to [-0.5, 0.5]
+    double m_x = (u - 0.5) * planeWidth;
+    double m_y = (0.5 - v) * planeHeight;  // flip here
+    double m_z = imagePlaneDistance;
+
+    //slight bug fix here
+    Point3 m(cameraPos.x + m_x, cameraPos.y + m_y, cameraPos.z + m_z); // world-space point on image plane
+    Vec3 dir(m.x - cameraPos.x,  m.y - cameraPos.y, m.z - cameraPos.z);
+    Ray ray(cameraPos, dir); // ray direction = m - camera
+
+    HitRecord h = findIntersectingTriangle(ray, sceneTriangles);
+    return phong(h, cameraPos);
+}
+
 int main() {
     vector<Point3> vertexBuffer;
     vector<uint32_t> indexBuffer;
@@ -199,39 +224,35 @@ int main() {
 
     for(int frame = 0; frame < FRAMES; frame++){
 
+        // clear buffers for every new frame
         vertexBuffer.clear();
         indexBuffer.clear();
         normalBuffer.clear();
 
         // file output information
         std::ofstream outFile("frames/image" + std::to_string(frame) + ".ppm");
-
-        generateSphere(vertexBuffer, indexBuffer, normalBuffer, frame);
-
-        Point3 leftCorner(0, 0, 0);
-        Point3 rightCorner(1000, 1000, 1000);
-
-        vector<Triangle> sceneTriangles =
-            constructSceneTriangles(vertexBuffer, indexBuffer, normalBuffer);
-
-        Point3 cameraPos = computeCameraPosition(leftCorner, rightCorner);
-
-        TriangleGrid intersections =
-            findSurfaceIntersections(cameraPos, sceneTriangles);
-
-        
         if (outFile.is_open()) {
             outFile << "P3\n" << IMAGE_WIDTH << ' ' << IMAGE_HEIGHT << "\n255\n";
         } else {
             std::cerr << "Unable to open file";
         }
 
-        // Cache colors to enable anti-aliasing
+        // fill buffers with data from test function
+        generateSphere(vertexBuffer, indexBuffer, normalBuffer, frame);
         
+        // place camera
+        Point3 leftCorner(0, 0, 0);
+        Point3 rightCorner(1000, 1000, 1000);
+        Point3 cameraPos = computeCameraPosition(leftCorner, rightCorner);
+
+        // parse buffer data
+        vector<Triangle> sceneTriangles =
+            constructSceneTriangles(vertexBuffer, indexBuffer, normalBuffer);
+
+        // Cache colors to enable anti-aliasing
         for (int r = 0; r < IMAGE_HEIGHT; r++) {
             for (int c = 0; c < IMAGE_WIDTH; c++) {
-                HitRecord hitRec = intersections[r*IMAGE_WIDTH + c];
-                rayColors[r * IMAGE_WIDTH + c] = phong(hitRec, cameraPos);
+                rayColors[r * IMAGE_WIDTH + c] = colorPixel(r, c, cameraPos, sceneTriangles);
             }
         }
 

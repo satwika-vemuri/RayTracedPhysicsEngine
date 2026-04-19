@@ -12,6 +12,11 @@
 # inside your terminal and you should see the Makefile, alongside the other .cpp, and .h files in the output
 
 
+# to see video, cd into frames folder and type the following command:
+# ffmpeg -framerate 15 -i image%d.ppm -c:v libx264 -vf "format=yuv420p" output.mp4
+# 15 means 15 frames per second
+# image%d.ppm indicates that the video will render frames in order of image1.ppm, image2.ppm, etc.
+
 CXX = g++
 CXXFLAGS = -std=c++17 -Wall -Wextra -pedantic -O2
 
@@ -24,9 +29,9 @@ $(TARGET): $(SRC)
 	$(CXX) $(CXXFLAGS) -o $(TARGET) $(SRC)
 
 run: $(TARGET)
-	./$(TARGET) > output.ppm
+	./$(TARGET) 
 
 clean:
-	rm -f $(TARGET) output.ppm
+	rm -f $(TARGET) frames/*
 
 .PHONY: all run clean

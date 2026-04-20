@@ -17,19 +17,31 @@
 # 15 means 15 frames per second
 # image%d.ppm indicates that the video will render frames in order of image1.ppm, image2.ppm, etc.
 
-CXX = g++
-CXXFLAGS = -std=c++17 -Wall -Wextra -pedantic -O2
+
+# Instructions to get cuda working:
+# module purge
+# module load legacy/CentOS7
+# module load gcc/8.5.0 
+# module load nvidia-hpc-sdk
+
+# submit job "sbatch job.sl" to run with cuda
+
+
+NVCC = nvcc
+
+# Host + device flags
+NVCCFLAGS = -std=c++14 -O2 -Xcompiler "-Wall -Wextra -pedantic"
 
 TARGET = render
-SRC = main.cpp rayTrace.cpp
+SRC = main.cu rayTrace.cu
 
 all: $(TARGET)
 
 $(TARGET): $(SRC)
-	$(CXX) $(CXXFLAGS) -o $(TARGET) $(SRC)
+	$(NVCC) $(NVCCFLAGS) -o $(TARGET) $(SRC)
 
 run: $(TARGET)
-	./$(TARGET) 
+	./$(TARGET)
 
 clean:
 	rm -f $(TARGET) frames/*

@@ -1,54 +1,72 @@
 #pragma once
 #include <cmath>
+#include <cuda_runtime.h>
+
+
+#define HD __host__ __device__
 
 struct Vec3 {
     double x, y, z;
 
-    Vec3() : x(0.0), y(0.0), z(0.0) {}
-    Vec3(double x, double y, double z) : x(x), y(y), z(z) {}
+    HD Vec3() : x(0.0), y(0.0), z(0.0) {}
+    HD Vec3(double x, double y, double z) : x(x), y(y), z(z) {}
 
-    Vec3 operator+(const Vec3& lhs) const { return {x+lhs.x, y+lhs.y, z+lhs.z}; }
-    Vec3 operator-(const Vec3& lhs) const { return {x-lhs.x, y-lhs.y, z-lhs.z}; }
-    Vec3 operator*(double s) const { return {x*s, y*s, z*s}; }
-    Vec3 operator/(double s) const { return {x/s, y/s, z/s}; }
-    Vec3 operator-() const { return {-x, -y, -z}; }
-    Vec3& operator+=(const Vec3& lhs)
-    {
-        x+=lhs.x; y+=lhs.y; z+=lhs.z;
-        return *this;
-    }
-    Vec3& operator-=(const Vec3& lhs)
-    {
-        x-=lhs.x; y-=lhs.y; z-=lhs.z; 
-        return *this;
-    }
-    Vec3& operator*=(double s)
-    {
-        x*=s; y*=s; z*=s;
-        return *this;
-    }
-    double dot(const Vec3& lhs) const { return x*lhs.x + y*lhs.y + z*lhs.z; }
-    double length2() const { return x*x + y*y + z*z; }
-    double length() const { return std::sqrt(x*x + y*y + z*z); }
+    HD Vec3 operator+(const Vec3& lhs) const { return Vec3(x+lhs.x, y+lhs.y, z+lhs.z); }
+    HD Vec3 operator-(const Vec3& lhs) const { return Vec3(x-lhs.x, y-lhs.y, z-lhs.z); }
+    HD Vec3 operator*(double s) const { return Vec3(x*s, y*s, z*s); }
+    HD Vec3 operator/(double s) const { return Vec3(x/s, y/s, z/s); }
+    HD Vec3 operator-() const { return Vec3(-x, -y, -z); }
 
-    Vec3 normalized() const {
+    HD Vec3& operator+=(const Vec3& lhs) {
+        x += lhs.x; y += lhs.y; z += lhs.z;
+        return *this;
+    }
+
+    HD Vec3& operator-=(const Vec3& lhs) {
+        x -= lhs.x; y -= lhs.y; z -= lhs.z;
+        return *this;
+    }
+
+    HD Vec3& operator*=(double s) {
+        x *= s; y *= s; z *= s;
+        return *this;
+    }
+
+    HD double dot(const Vec3& lhs) const {
+        return x*lhs.x + y*lhs.y + z*lhs.z;
+    }
+
+    HD double length2() const {
+        return x*x + y*y + z*z;
+    }
+
+    HD double length() const {
+        return sqrt(x*x + y*y + z*z);  // ✅ no std::
+    }
+
+    HD Vec3 normalized() const {
         double l = length();
-        return l > (1e-8f) ? (*this / l) : Vec3{};
+        return l > 1e-8 ? (*this / l) : Vec3(0.0, 0.0, 0.0);
     }
 };
 
-inline Vec3 operator*(double s, const Vec3& v) { return v * s; }
-inline Vec3 operator*(const Vec3& u, const Vec3& v) {
-    return Vec3(u.x * v.x, u.y * v.y, u.z* v.z);
+HD inline Vec3 operator*(double s, const Vec3& v) {
+    return v * s;
 }
 
-inline Vec3 cross(const Vec3& u, const Vec3& v) {
+HD inline Vec3 operator*(const Vec3& u, const Vec3& v) {
+    return Vec3(u.x * v.x, u.y * v.y, u.z * v.z);
+}
+
+HD inline Vec3 cross(const Vec3& u, const Vec3& v) {
     return Vec3(u.y*v.z - u.z*v.y,
                 u.z*v.x - u.x*v.z,
                 u.x*v.y - u.y*v.x);
 }
 
-inline Vec3 reflection(const Vec3& v, const Vec3& n) { return 2 * v.dot(n) * n - v; }
+HD inline Vec3 reflection(const Vec3& v, const Vec3& n) {
+    return 2.0 * v.dot(n) * n - v;
+}
 
-// point3 is just an alias for Vec3, but useful for geometric clarity in the code.
+// Alias
 using Point3 = Vec3;

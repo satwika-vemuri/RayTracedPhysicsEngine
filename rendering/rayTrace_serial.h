@@ -7,10 +7,11 @@
 #include <limits>
 #include <string>
 #include <vector>
+#include <chrono>
 
 // Reuse the CUDA-free Vec3/Point3 from particle_sim (structurally identical
 // to rendering/vec3.h, just without __host__/__device__ decorators).
-#include "../particle_sim/src/Vec3.h"
+#include "../particle_sim/src/serial/Vec3.h"
 
 using Color = Vec3;
 
@@ -258,14 +259,14 @@ inline void rayTrace(
         for (int c = 0; c < IMAGE_WIDTH; ++c) {
             rayColors[r * IMAGE_WIDTH + c] = colorPixel(r, c, cameraPos, tris, scene);
         }
-        printf("not stuck. just taking time... (getting pixel colors for row %d)\n", r);
+        // printf("not stuck. just taking time... (getting pixel colors for row %d)\n", r);
     }
 
     for (int r = 0; r < IMAGE_HEIGHT; ++r) {
         for (int c = 0; c < IMAGE_WIDTH; ++c) {
             write_Color(outFile, getAntialiasedColor(r, c, rayColors));
         }
-        printf("not stuck. just taking time... (writing pixel colors to outfile for row %d)\n", r);
+        // printf("not stuck. just taking time... (writing pixel colors to outfile for row %d)\n", r);
     }
 
     delete[] rayColors;

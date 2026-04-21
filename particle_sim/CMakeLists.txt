@@ -11,12 +11,12 @@ endif()
 find_package(SFML 2.5 COMPONENTS graphics window system REQUIRED)
 
 add_executable(particle_sim
-    src/SPH.cpp
-    src/main.cpp
-    src/March.cpp
+    src/serial/SPH.cpp
+    src/serial/main.cpp
+    src/serial/March.cpp
 )
 
-target_include_directories(particle_sim PRIVATE src)
+target_include_directories(particle_sim PRIVATE src/serial)
 target_link_libraries(particle_sim PRIVATE sfml-graphics sfml-window sfml-system)
 
 # optimize

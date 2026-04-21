@@ -8,8 +8,8 @@
 #include <chrono>
 
 // physics sim includes
-#include "particle_sim/src/March.h"
-#include "particle_sim/src/SPH.h"
+#include "particle_sim/src/serial/March.h"
+#include "particle_sim/src/serial/SPH.h"
 
 // serial ray tracer (CUDA-free)
 #include "rendering/rayTrace_serial.h"

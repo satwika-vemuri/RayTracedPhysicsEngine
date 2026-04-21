@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <iomanip>
 #include <cmath>
+#include <chrono>
 
 // physics sim includes
 #include "particle_sim/src/March.h"
@@ -114,13 +115,23 @@ int main() {
         normalBuffer_rayin.clear();
 
         // physics
+        auto physics_start = std::chrono::steady_clock::now();
         for (int s = 0; s < SUBSTEPS; ++s) sim.step();
+        auto physics_end = std::chrono::steady_clock::now();
+        int64_t physics_elapsed = std::chrono::duration_cast<std::chrono::nanoseconds>(physics_end - physics_start).count();
         printf("done with the physics\n");
+        printf("physics benchmarking:\n\t%ld ms elapsed\n\t%ld particles simulated\n\t%d substeps\n\t~%ld ms/sim step\n",
+            physics_elapsed, sim.particles.size(), SUBSTEPS, physics_elapsed/SUBSTEPS);
 
         // particles to mesh
+        auto mesh_start = std::chrono::steady_clock::now();
 	    buildScalarField(sim.particles);
 	    marchCubes(vertexBuffer_meshout, indexBuffer_meshout, normalBuffer_meshout);
+        auto mesh_end = std::chrono::steady_clock::now();
+        int64_t mesh_elapsed = std::chrono::duration_cast<std::chrono::nanoseconds>(mesh_end - mesh_start).count();
         printf("done with the mesh construction\n");
+        printf("mesh benchmarking:\n\t%ld ms elapsed\n", mesh_elapsed);
+        
 
         // TODO: fix this!!! we want allignment on buffers
         convertMeshBuffers(
@@ -132,6 +143,7 @@ int main() {
             normalBuffer_rayin
         );
 
+        auto ray_start = std::chrono::steady_clock::now();
         // ray trace
         rayTrace(
             vertexBuffer_rayin,
@@ -141,7 +153,10 @@ int main() {
             leftCorner,
             rightCorner);
          printf("done with the ray tracing\n");
-
+        auto ray_end = std::chrono::steady_clock::now();
+        int64_t ray_elapsed = std::chrono::duration_cast<std::chrono::nanoseconds>(ray_end - ray_start).count();
+        printf("ray benchmarking:\n\t%ld ms elapsed\n\t%d rays traced\n", ray_elapsed, IMAGE_HEIGHT * IMAGE_WIDTH);
+        printf("done with ray tracing");
         printf("finishing frame #%d\n", frame);
         ++frame;
     }

@@ -6,6 +6,7 @@
 #include <fstream>
 #include <string>
 #include <cuda_runtime.h>
+#include <cstdio>
 
 
 #include "rayTrace_gpu.h"
@@ -13,7 +14,8 @@
 
 
 
-#define FRAMES 50
+#define FRAMES 10
+#define BOXDIMENSION 64
 
 using std::vector;
 
@@ -201,12 +203,29 @@ Color getAntialiasedColor(int r, int c, Color* rayColors) {
     return final_col;
 }
 
-__device__
-Color colorPixel(int r, int c,
-                 const Point3& cameraPos, const Point3& sceneCenter,
-                 const Triangle* sceneTriangles,
-                 int numTriangles, SceneConstants scene) {
+__global__
+void computeRayColors(Color* rayColors,
+                      Point3 leftCorner,
+                      Point3 rightCorner,
+                      Point3 sceneCenter,
+                      int* cellStart,
+                      int* cellTriangles,
+                      Triangle* sceneTriangles,
+                      int numTriangles,
+                      int width,
+                      int height, SceneConstants scene) {
+    
 
+
+
+    // compute r & c as a function of the thread and block idx
+    int c = blockIdx.x * blockDim.x + threadIdx.x;
+    int r = blockIdx.y * blockDim.y + threadIdx.y;
+    if (r >= height || c >= width) return;
+    int idx = r * width + c;
+
+    // variables for ray tracing
+    Point3 cameraPos = rightCorner;
     double imagePlaneDistance = 1;
     double theta = PI/4;
     double planeHeight = 2 * imagePlaneDistance * tan(theta/2);
@@ -223,35 +242,54 @@ Color colorPixel(int r, int c,
     Vec3 cameraForward = (sceneCenter - cameraPos).normalized(); // points the camera to the center of the scene
     Vec3 sceneUp(0, 1, 0);
     Vec3 cameraRight = (cross(cameraForward, sceneUp)).normalized(); 
-    Vec3 cameraUp    = cross(cameraRight, cameraForward);
+    Vec3 cameraUp = cross(cameraRight, cameraForward);
 
     Point3 m = cameraPos + cameraRight * m_x + cameraUp * m_y + cameraForward * m_z;
-
     Vec3 dir = m - cameraPos;
-
     Ray ray(cameraPos, dir);
 
-    HitRecord h = findIntersectingTriangle(ray, sceneTriangles, numTriangles);
-    return phong(h, cameraPos, scene);
-}
+    
+    // ex: rightCorner = (1000, 1000, 1000), sceneCenter = (500, 500, 500), calculate leftCorner to be (0, 0, 0)
+    
+    int numCells = BOXDIMENSION*BOXDIMENSION*BOXDIMENSION;
+    int cells[128];
+    int n = findIntersectingCubes(ray, rightCorner, leftCorner, BOXDIMENSION, cells, 128);
+    if (n < 0 || n > 128) {
+        printf("BAD N: %d\n", n);
+        return;
+    }
 
-__global__
-void computeRayColors(Color* rayColors,
-                      Point3 cameraPos,
-                      Point3 sceneCenter,
-                      Triangle* sceneTriangles,
-                      int numTriangles,
-                      int width,
-                      int height, SceneConstants scene) {
+    // HitRecord best;
+    // best.hit = false;
 
-    int c = blockIdx.x * blockDim.x + threadIdx.x;
-    int r = blockIdx.y * blockDim.y + threadIdx.y;
+    // for (int i = 0; i < numTriangles; i++) {
+    //     HitRecord h = mollerTrumbore(ray, sceneTriangles[i]);
 
-    if (r >= height || c >= width) return;
+    //     if (h.hit && (!best.hit || h.distance < best.distance)) {
+    //         best = h;
+    //     }
+    // }
 
-    int idx = r * width + c;
+    // rayColors[idx] = phong(best, cameraPos, scene);
+    // return;
 
-    rayColors[idx] = colorPixel(r, c, cameraPos, sceneCenter, sceneTriangles, numTriangles, scene);
+    HitRecord best;
+    best.hit = false;
+
+    for (int i = 0; i < n; i++) {
+        int cell = cells[i];
+
+        if (cell < 0 || cell >= numCells) {
+            printf("BAD CELL: %d\n", cell);
+            continue;
+        }
+        HitRecord h = findIntersectingTriangle(ray,cellTriangles,sceneTriangles,cellStart,cell);
+
+        if (h.hit && (!best.hit || h.distance < best.distance)) {
+            best = h;
+        }
+    }
+    rayColors[idx] = phong(best, cameraPos, scene);
 }
 
 
@@ -289,6 +327,37 @@ int main() {
         // parse buffer data
         vector<Triangle> sceneTriangles =
             constructSceneTriangles(vertexBuffer, indexBuffer, normalBuffer);
+        
+        vector<vector<int>> trianglesPerBox = assignTriangles(sceneTriangles, leftCorner, rightCorner, BOXDIMENSION);
+
+        ////// Convert above array into flat array for Cuda ///////
+        int numCells = BOXDIMENSION * BOXDIMENSION * BOXDIMENSION;
+
+        vector<int> cellStart(numCells + 1, 0);
+        vector<int> flatTriangleIdx;
+
+        // build offsets
+        for (int i = 0; i < numCells; i++) {
+            cellStart[i + 1] = cellStart[i] + trianglesPerBox[i].size();
+        }
+
+        flatTriangleIdx.resize(cellStart[numCells]);
+
+        vector<int> offset = cellStart;
+
+        // fill
+        for (int i = 0; i < numCells; i++) {
+            for (int triIdx : trianglesPerBox[i]) {
+
+                if (triIdx < 0 || triIdx >= (int)sceneTriangles.size()) {
+                    printf("BAD TRI IDX: %d\n", triIdx);
+                    continue;
+                }
+
+                flatTriangleIdx[offset[i]++] = triIdx;
+            }
+        }
+        //////////////////////////////////////////////////////////////
 
         /*
         CUDA PARALLELIZED SECTION START
@@ -296,15 +365,25 @@ int main() {
         int numTriangles = sceneTriangles.size();
         Color* d_rayColors;
         Triangle* d_sceneTriangles;
+        int* d_cellStart;
+        int* d_cellTriangles;
 
         // allocate
         cudaMalloc(&d_rayColors, IMAGE_WIDTH * IMAGE_HEIGHT * sizeof(Color));
         cudaMalloc(&d_sceneTriangles, numTriangles * sizeof(Triangle));
+        cudaMalloc(&d_cellStart, (numCells + 1) * sizeof(int));
+        cudaMalloc(&d_cellTriangles, flatTriangleIdx.size() * sizeof(int));
 
-        // copy triangles to GPU
+
+        // copy
         cudaMemcpy(d_sceneTriangles, sceneTriangles.data(),
                 numTriangles * sizeof(Triangle),
                 cudaMemcpyHostToDevice);
+        cudaMemcpy(d_cellStart, cellStart.data(),
+                (numCells + 1) * sizeof(int), cudaMemcpyHostToDevice);
+        cudaMemcpy(d_cellTriangles, flatTriangleIdx.data(),
+                flatTriangleIdx.size() * sizeof(int), cudaMemcpyHostToDevice);
+
 
         // declare constants
         SceneConstants scene = {
@@ -320,8 +399,11 @@ int main() {
 
         computeRayColors<<<gridSize, blockSize>>>(
             d_rayColors,
+            leftCorner,
             rightCorner,
             sceneCenter,
+            d_cellStart,
+            d_cellTriangles,
             d_sceneTriangles,
             numTriangles,
             IMAGE_WIDTH,
@@ -329,10 +411,9 @@ int main() {
             scene
         );
 
-        cudaError_t err = cudaGetLastError();
+        cudaError_t err = cudaDeviceSynchronize();  // <-- THIS catches runtime errors
         if (err != cudaSuccess) {
-            std::cout << "CUDA launch error: "
-                    << cudaGetErrorString(err) << std::endl;
+            std::cout << "CUDA error: " << cudaGetErrorString(err) << std::endl;
         }
 
         cudaDeviceSynchronize();

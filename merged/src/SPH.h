@@ -1,6 +1,6 @@
 #pragma once
 #include <vector>
-#include "Vec3.h"
+#include "vec3.h"
 #include "SpatialHash.h"
 
 struct Particle {

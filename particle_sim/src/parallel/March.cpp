@@ -5,6 +5,7 @@
 #include "SPH.h"
 #include "SpatialHash.h"
 
+#include <cstdint>
 #include <vector>
 
 // TODO: Refactor w more helpers + make more readable
@@ -64,9 +65,9 @@ void buildScalarField(const std::vector<Particle> &particles) {
 /*
  * Part 2-5 of Mesh Generation
  */
-void marchCubes(std::vector<std::vector<double>>& vertexBuffer,
-                std::vector<int>& indexBuffer,
-                std::vector<std::vector<double>>& normalBuffer) {
+void marchCubes(std::vector<Vec3>& vertexBuffer,
+                std::vector<uint32_t>& indexBuffer,
+                std::vector<Vec3>& normalBuffer) {
 
         /*
          * Now that we have a density of every corner of the grid, find which
@@ -169,16 +170,11 @@ void marchCubes(std::vector<std::vector<double>>& vertexBuffer,
 
                                         // Record the base index before we add
                                         // new vertices
-                                        int base = (int)vertexBuffer.size();
+                                        uint32_t base = (uint32_t)vertexBuffer.size();
 
-                                        // Push 3 vertices (each as a {x, y, z}
-                                        // vector of doubles)
-                                        vertexBuffer.push_back(
-                                            {v0.x, v0.y, v0.z});
-                                        vertexBuffer.push_back(
-                                            {v1.x, v1.y, v1.z});
-                                        vertexBuffer.push_back(
-                                            {v2.x, v2.y, v2.z});
+                                        vertexBuffer.push_back(v0);
+                                        vertexBuffer.push_back(v1);
+                                        vertexBuffer.push_back(v2);
 
                                         // Push 3 indices pointing to those
                                         // vertices next stage in pipeline
@@ -188,18 +184,9 @@ void marchCubes(std::vector<std::vector<double>>& vertexBuffer,
                                         indexBuffer.push_back(base + 1);
                                         indexBuffer.push_back(base + 2);
 
-                                        normalBuffer.push_back(
-                                            {gradientNormal(v0).x,
-                                             gradientNormal(v0).y,
-                                             gradientNormal(v0).z});
-                                        normalBuffer.push_back(
-                                            {gradientNormal(v1).x,
-                                             gradientNormal(v1).y,
-                                             gradientNormal(v1).z});
-                                        normalBuffer.push_back(
-                                            {gradientNormal(v2).x,
-                                             gradientNormal(v2).y,
-                                             gradientNormal(v2).z});
+                                        normalBuffer.push_back(gradientNormal(v0));
+                                        normalBuffer.push_back(gradientNormal(v1));
+                                        normalBuffer.push_back(gradientNormal(v2));
                                 }
                         }
                 }

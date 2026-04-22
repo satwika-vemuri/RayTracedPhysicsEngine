@@ -32,4 +32,12 @@ cmake-build-*/
 # Makefile artifacts
 *.d
 
-*.txt
+*.clangd
+*.json
+
+.cache/
+frames/
+
+example_frames/
+
+*.mp4

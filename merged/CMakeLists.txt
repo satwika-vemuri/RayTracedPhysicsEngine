@@ -1,3 +1,11 @@
+# to compile, go to the folder containing this file and run:
+# cmake -S . -B build
+# cmake --build build
+# this will create a build folder with executables
+# to run type :
+# ./build/merge
+
+
 #thnx AI
 
 cmake_minimum_required(VERSION 3.14)

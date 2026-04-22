@@ -1,4 +1,16 @@
+# to compile, go to the folder containing this file and run:
+# cmake -S . -B build
+# cmake --build build
+# this will create a build folder with executables
+# to run type :
+# ./build/serial_renderer
+# if CUDA was found on the device
+# (this most likely means you are running this on Kasra's GPU)
+# you can also run the cuda version by typeping
+# ./build/cuda_renderer
+
 #thnx AI
+
 
 cmake_minimum_required(VERSION 3.14)
 

@@ -82,8 +82,11 @@ __global__ void computeDensityPressure_kernel(Particle* particles, int n, GpuHas
     int iz = (int)floor(pos_i.z / hash.cellSize);
 
     // check 3x3x3 neighborhood
+    #pragma unroll
     for (int dx = -1; dx <= 1; ++dx) {
+        #pragma unroll
         for (int dy = -1; dy <= 1; ++dy) {
+            #pragma unroll
             for (int dz = -1; dz <= 1; ++dz) {
                 int key = hash.cellKey(ix+dx, iy+dy, iz+dz);
                 int j = hash.d_head[key];

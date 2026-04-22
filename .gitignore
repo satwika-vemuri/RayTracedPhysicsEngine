@@ -38,4 +38,6 @@ cmake-build-*/
 .cache/
 frames/
 
+example_frames/
+
 *.mp4

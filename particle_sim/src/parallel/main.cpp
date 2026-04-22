@@ -29,7 +29,7 @@ int main() {
     };
 
     // num sub-steps per rendered frame
-    constexpr int SUBSTEPS = 40;
+    constexpr int SUBSTEPS = 20;
 
     std::vector<std::vector<double>> vertexBuffer;
     std::vector<int> indexBuffer;

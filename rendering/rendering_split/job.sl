@@ -22,5 +22,5 @@ echo "CUDA DEVICES:"
 echo $CUDA_VISIBLE_DEVICES
 
 make clean
-make || exit 1
+make run_parallel || exit 1
 ./render

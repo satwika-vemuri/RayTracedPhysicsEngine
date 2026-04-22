@@ -180,7 +180,7 @@ void generateSphere(
 }
 
 
-Color colorPixel(int r, int c, const Point3& cameraPos,const vector<Triangle>& sceneTriangles){
+Color colorPixel(int r, int c, const Point3& cameraPos, const Point3& sceneCenter, const vector<Triangle>& sceneTriangles){
     // define image plane metrics
     double imagePlaneDistance = 1;
     double theta = PI/4; // 45 degree FOV
@@ -195,10 +195,17 @@ Color colorPixel(int r, int c, const Point3& cameraPos,const vector<Triangle>& s
     double m_y = (0.5 - v) * planeHeight;  // flip here
     double m_z = imagePlaneDistance;
 
-    //slight bug fix here
-    Point3 m(cameraPos.x + m_x, cameraPos.y + m_y, cameraPos.z + m_z); // world-space point on image plane
-    Vec3 dir(m.x - cameraPos.x,  m.y - cameraPos.y, m.z - cameraPos.z);
-    Ray ray(cameraPos, dir); // ray direction = m - camera
+    // redefine camera axises
+    Vec3 cameraForward = (sceneCenter - cameraPos).normalized(); // points the camera to the center of the scene
+    Vec3 sceneUp(0, 1, 0);
+    Vec3 cameraRight = (cross(cameraForward, sceneUp)).normalized(); 
+    Vec3 cameraUp    = cross(cameraRight, cameraForward);
+
+    Point3 m = cameraPos + cameraRight * m_x + cameraUp * m_y + cameraForward * m_z;
+
+    Vec3 dir = m - cameraPos;
+
+    Ray ray(cameraPos, dir);
 
     HitRecord h = findIntersectingTriangle(ray, sceneTriangles);
     return phong(h, cameraPos);
@@ -231,7 +238,7 @@ int main() {
         // place camera
         Point3 leftCorner(0, 0, 0);
         Point3 rightCorner(1000, 1000, 1000);
-        Point3 cameraPos = computeCameraPosition(leftCorner, rightCorner);
+        Point3 sceneCenter = leftCorner + ((rightCorner-leftCorner)/2);
 
         auto start_scene = std::chrono::high_resolution_clock::now();
         // parse buffer data
@@ -243,7 +250,7 @@ int main() {
         // Cache colors to enable anti-aliasing
         for (int r = 0; r < IMAGE_HEIGHT; r++) {
             for (int c = 0; c < IMAGE_WIDTH; c++) {
-                rayColors[r * IMAGE_WIDTH + c] = colorPixel(r, c, cameraPos, sceneTriangles);
+                rayColors[r * IMAGE_WIDTH + c] = colorPixel(r, c, rightCorner, sceneCenter, sceneTriangles);
             }
         }
 

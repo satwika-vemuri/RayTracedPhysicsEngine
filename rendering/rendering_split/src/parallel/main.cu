@@ -9,6 +9,7 @@
 
 
 #include "rayTrace_gpu.h"
+#include "color.h"
 
 
 
@@ -202,7 +203,7 @@ Color getAntialiasedColor(int r, int c, Color* rayColors) {
 
 __device__
 Color colorPixel(int r, int c,
-                 const Point3& cameraPos,
+                 const Point3& cameraPos, const Point3& sceneCenter,
                  const Triangle* sceneTriangles,
                  int numTriangles, SceneConstants scene) {
 
@@ -218,13 +219,15 @@ Color colorPixel(int r, int c,
     double m_y = (0.5 - v) * planeHeight;
     double m_z = imagePlaneDistance;
 
-    Point3 m(cameraPos.x + m_x,
-             cameraPos.y + m_y,
-             cameraPos.z + m_z);
+    // redefine camera axises
+    Vec3 cameraForward = (sceneCenter - cameraPos).normalized(); // points the camera to the center of the scene
+    Vec3 sceneUp(0, 1, 0);
+    Vec3 cameraRight = (cross(cameraForward, sceneUp)).normalized(); 
+    Vec3 cameraUp    = cross(cameraRight, cameraForward);
 
-    Vec3 dir(m.x - cameraPos.x,
-             m.y - cameraPos.y,
-             m.z - cameraPos.z);
+    Point3 m = cameraPos + cameraRight * m_x + cameraUp * m_y + cameraForward * m_z;
+
+    Vec3 dir = m - cameraPos;
 
     Ray ray(cameraPos, dir);
 
@@ -235,6 +238,7 @@ Color colorPixel(int r, int c,
 __global__
 void computeRayColors(Color* rayColors,
                       Point3 cameraPos,
+                      Point3 sceneCenter,
                       Triangle* sceneTriangles,
                       int numTriangles,
                       int width,
@@ -247,9 +251,8 @@ void computeRayColors(Color* rayColors,
 
     int idx = r * width + c;
 
-    rayColors[idx] = colorPixel(r, c, cameraPos, sceneTriangles, numTriangles, scene);
+    rayColors[idx] = colorPixel(r, c, cameraPos, sceneCenter, sceneTriangles, numTriangles, scene);
 }
-
 
 
 
@@ -280,7 +283,8 @@ int main() {
         // place camera
         Point3 leftCorner(0, 0, 0);
         Point3 rightCorner(1000, 1000, 1000);
-        Point3 cameraPos = computeCameraPosition(leftCorner, rightCorner);
+        Point3 sceneCenter = leftCorner + ((rightCorner-leftCorner)/2);//TODO RN computeCameraPosition(leftCorner, rightCorner);
+
 
         // parse buffer data
         vector<Triangle> sceneTriangles =
@@ -316,7 +320,8 @@ int main() {
 
         computeRayColors<<<gridSize, blockSize>>>(
             d_rayColors,
-            cameraPos,
+            rightCorner,
+            sceneCenter,
             d_sceneTriangles,
             numTriangles,
             IMAGE_WIDTH,

@@ -4,11 +4,12 @@
 #pragma once
 #include "SPH.h"
 #include <algorithm>
+#include <cstdint>
 
 void buildScalarField(const std::vector<Particle> &particles);
-void marchCubes(std::vector<std::vector<double>> &vertexBuffer,
-                std::vector<int> &indexBuffer,
-                std::vector<std::vector<double>> &normalBuffer);
+void marchCubes(std::vector<Vec3> &vertexBuffer,
+                std::vector<uint32_t> &indexBuffer,
+                std::vector<Vec3> &normalBuffer);
 
 // MARCHING CUBE VARIABLES
 

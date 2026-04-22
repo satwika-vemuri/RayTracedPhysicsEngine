@@ -2,7 +2,7 @@
 #include <vector>
 #include <unordered_map>
 #include <cmath>
-#include "Vec3.h"
+#include "vec3.h"
 
 // grid-based spatial hash for O(1) amortized neighbor lookup
 class SpatialHash {

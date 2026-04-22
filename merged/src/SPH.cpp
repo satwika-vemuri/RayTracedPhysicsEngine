@@ -38,9 +38,9 @@ SPH::SPH() : grid(H) {
 
 void SPH::reset() {
     particles.clear();
-    for (double x = BMIN + SPACING; x < 0.0; x += SPACING) { // left half of the box
-        for (double y = BMIN + SPACING; y < BMAX - SPACING; y += SPACING) { // full height
-            for (double z = BMIN + SPACING; z < BMAX - SPACING; z += SPACING) { // full depth
+    for (double x = (0.5 * BMIN); x < (0.5 * BMAX); x += SPACING) {
+        for (double y = BMIN + SPACING; y < (0.5 * BMAX); y += SPACING) {
+            for (double z = BMIN + SPACING; z < BMAX - SPACING; z += SPACING) {
                 Particle p;
                 p.pos = {x, y, z};
                 p.vel = {0.0, 0.0, 0.0};

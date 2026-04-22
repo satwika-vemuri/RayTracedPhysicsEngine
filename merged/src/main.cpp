@@ -141,9 +141,7 @@ int main() {
     static constexpr int boxEdges[12][2] = {
     {0,1},{1,2},{2,3},{3,0}, {4,5},{5,6},{6,7},{7,4}, {0,4},{1,5},{2,6},{3,7}
     };
-    // num sub-steps per rendered frame
-    // 5 × Dt(0.001 s) = 0.005 s of simulated time per visual frame
-    constexpr int SUBSTEPS = 5;
+    constexpr int SUBSTEPS = 20;
 
     /*
         ray tracer setup

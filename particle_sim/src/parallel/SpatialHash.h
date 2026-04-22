@@ -9,7 +9,6 @@ class SpatialHash {
     double cellSize;
     std::unordered_map<int64_t, std::vector<int>> table;
 
-    // prime mixing to reduce collisions between nearby cells
     int64_t cellKey(int ix, int iy, int iz) const {
         constexpr int64_t p1 = 73856093LL;
         constexpr int64_t p2 = 19349663LL;
@@ -31,7 +30,6 @@ public:
         table[cellKey(ix, iy, iz)].push_back(particleIdx);
     }
 
-    // fills out with indices of all particles within the radius of pos
     void query(const Vec3& pos, double radius, std::vector<int>& out) const {
         out.clear();
         int ir = std::ceil(radius / cellSize);

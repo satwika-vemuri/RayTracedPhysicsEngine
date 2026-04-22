@@ -20,14 +20,14 @@ struct Particle {
 // I'll refer to this paper as 'the STAR paper' throughout these files
 class SPH {
 public:
-    static constexpr double H = 0.15; // smoothing length used in smoothing kernel
+    static constexpr double H = 0.13; // smoothing length used in smoothing kernel
     static constexpr double H2 = H * H;
 
     static constexpr double RHO0 = 1000.0; // rest density
     // particle spacing. note that increasing/decreasing
     // this value increases and decreases the number of particles
     // spawned.
-    static constexpr double SPACING = H * 0.85;
+    static constexpr double SPACING = H * 0.75;
     static constexpr double MASS = RHO0 * SPACING * SPACING * SPACING; // explicit mass
 
     // some parameters for the so called 'equation of state (EOS)' calculations
@@ -35,15 +35,15 @@ public:
     static constexpr double C_SOUND = 30.0;
     static constexpr double B_PRESS = RHO0 * C_SOUND * C_SOUND / GAMMA;
 
-    static constexpr double MU = 0.08; // dynamic viscosity (may be increased or decreased as needed)
+    static constexpr double MU = 0.13; // dynamic viscosity (may be increased or decreased as needed)
     static constexpr double GRAVITY = 9.81;
 
     // for time integration
-    static constexpr double DT = 0.001;
+    static constexpr double DT = 0.00025;
 
     // some paramters for the axi-alligned bounding box
-    static constexpr double BMIN = -1.5;
-    static constexpr double BMAX =  1.5;
+    static constexpr double BMIN = -3.0;
+    static constexpr double BMAX =  3.0;
     static constexpr double RESTITUTION = 0.4; // wall collision damping
 
     // precomputed kernel constants that are defined in SPH.cpp

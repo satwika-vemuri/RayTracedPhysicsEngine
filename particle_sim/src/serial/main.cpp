@@ -12,7 +12,7 @@
 struct Camera {
     double theta = 0.4; // rotation around Y
     double phi = 0.0; // rotation around X
-    double dist  = 7.0; // distance from origin
+    double dist  = 10.0; // distance from origin
     double focal = 620.0; // focal length
 
     // world to camera space via two rotations
@@ -185,8 +185,7 @@ int main() {
     sf::Vector2i prevMouse;
 
     // num sub-steps per rendered frame
-    // 5 × Dt(0.001 s) = 0.005 s of simulated time per visual frame
-    constexpr int SUBSTEPS = 5;
+    constexpr int SUBSTEPS = 40;
 
     std::vector<std::vector<double>> vertexBuffer;
     std::vector<int> indexBuffer;

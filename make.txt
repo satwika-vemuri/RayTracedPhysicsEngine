@@ -1,5 +1,5 @@
 make with
 
-g++ -std=c++17 -O2 -Wall -o main_sim main.cpp particle_sim/src/SPH.cpp particle_sim/src/March.cpp
+g++ -std=c++17 -O2 -Wall -o main_sim main.cpp particle_sim/src/serial/SPH.cpp particle_sim/src/serial/March.cpp
 
 too freaking lazy to write a makefile or cmake list right now.

@@ -1,7 +1,6 @@
 #pragma once
 #include <vector>
 #include "Vec3.h"
-#include "SpatialHash.h"
 
 struct Particle {
     Vec3 pos;
@@ -12,66 +11,44 @@ struct Particle {
 };
 
 // 'Weakly Compressible' SPH simulation.
-// 
-// The implimentation and kernel functions used are based
-// on the following paper:
+//
+// The implementation and kernel functions used are based on:
 // https://cg.informatik.uni-freiburg.de/publications/2014_EG_SPH_STAR.pdf
 //
-// I'll refer to this paper as 'the STAR paper' throughout these files
+// step() launches 4 CUDA kernels (build grid → density/pressure → forces → integrate).
+// particles (host vector) is kept in sync after each step() for use by March.cpp.
 class SPH {
 public:
-    static constexpr double H = 0.15; // smoothing length used in smoothing kernel
+    static constexpr double H = 0.13;
     static constexpr double H2 = H * H;
-
-    static constexpr double RHO0 = 1000.0; // rest density
-    // particle spacing. note that increasing/decreasing
-    // this value increases and decreases the number of particles
-    // spawned.
-    static constexpr double SPACING = H * 0.85;
-    static constexpr double MASS = RHO0 * SPACING * SPACING * SPACING; // explicit mass
-
-    // some parameters for the so called 'equation of state (EOS)' calculations
-    static constexpr double GAMMA = 7.;
+    static constexpr double RHO0 = 1000.0;
+    static constexpr double SPACING = H * 0.75;
+    static constexpr double MASS = RHO0 * SPACING * SPACING * SPACING;
+    static constexpr double GAMMA = 7.0;
     static constexpr double C_SOUND = 30.0;
     static constexpr double B_PRESS = RHO0 * C_SOUND * C_SOUND / GAMMA;
-
-    static constexpr double MU = 0.08; // dynamic viscosity (may be increased or decreased as needed)
+    static constexpr double MU = 0.13;
     static constexpr double GRAVITY = 9.81;
+    static constexpr double DT = 0.00025;
+    static constexpr double BMIN = -3.0;
+    static constexpr double BMAX = 3.0;
+    static constexpr double RESTITUTION = 0.4;
 
-    // for time integration
-    static constexpr double DT = 0.001;
+    // kernel constants. can't use std library lol
+    static constexpr double K_PI = 3.14159265358979323846;
+    static constexpr double K_POLY6 = 315.0 / (64.0 * K_PI * H*H*H*H*H*H*H*H*H);
+    static constexpr double K_SPIKY = -45.0 / (K_PI * H*H*H*H*H*H);
+    static constexpr double K_VISC = 45.0 / (K_PI * H*H*H*H*H*H);
 
-    // some paramters for the axi-alligned bounding box
-    static constexpr double BMIN = -1.5;
-    static constexpr double BMAX =  1.5;
-    static constexpr double RESTITUTION = 0.4; // wall collision damping
-
-    // precomputed kernel constants that are defined in SPH.cpp
-    static const double K_POLY6;
-    static const double K_SPIKY;
-    static const double K_VISC;
-
-    std::vector<Particle> particles;
-
+    std::vector<Particle> particles; // host copy of particles
     SPH();
+    ~SPH();
     void reset();
-    // advance by DT (build grid --> density --> forces --> integrate)
     void step();
 
 private:
-    SpatialHash grid;
-    std::vector<int> nbrs; // buffer for neighbor queries in grid
-
-    // the kernel functions
-    // read the STAR paper for more details on these
-    double W_poly6(double r2) const;
-    Vec3  gradW_spiky(const Vec3& rij, double r) const;
-    double lapW_visc(double r) const;
-
-    // simulation passes called in step()
-    void buildGrid();
-    void computeDensityPressure();
-    void computeForces();
-    void integrate();
-    void enforceBoundary(Particle& p);
+    Particle* d_particles;
+    int* d_hashHead;
+    int* d_hashNext;
+    int maxParticles;
 };

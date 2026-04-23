@@ -251,7 +251,7 @@ void computeRayColors(Color* rayColors,
     Vec3 cameraRight = (cross(cameraForward, sceneUp)).normalized(); 
     Vec3 cameraUp = cross(cameraRight, cameraForward);
 
-    camera at top right
+    // camera at top right
     Point3 m = cameraPos + cameraRight * m_x + cameraUp * m_y + cameraForward * m_z;
     Vec3 dir = m - cameraPos;
     Ray ray(cameraPos, dir);

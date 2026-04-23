@@ -7,15 +7,14 @@
 #include <string>
 #include <cuda_runtime.h>
 #include <cstdio>
-
+#include <time.h>
+#include <iostream>
 
 #include "rayTrace_gpu.h"
 #include "color.h"
 
-
-
-#define FRAMES 10
-#define BOXDIMENSION 64
+#define FRAMES 1000
+#define BOXDIMENSION 2
 
 using std::vector;
 
@@ -259,42 +258,48 @@ void computeRayColors(Color* rayColors,
         return;
     }
 
-    // HitRecord best;
-    // best.hit = false;
-
-    // for (int i = 0; i < numTriangles; i++) {
-    //     HitRecord h = mollerTrumbore(ray, sceneTriangles[i]);
-
-    //     if (h.hit && (!best.hit || h.distance < best.distance)) {
-    //         best = h;
-    //     }
-    // }
-
-    // rayColors[idx] = phong(best, cameraPos, scene);
-    // return;
-
+    // Original version
     HitRecord best;
     best.hit = false;
 
-    for (int i = 0; i < n; i++) {
-        int cell = cells[i];
-
-        if (cell < 0 || cell >= numCells) {
-            printf("BAD CELL: %d\n", cell);
-            continue;
-        }
-        HitRecord h = findIntersectingTriangle(ray,cellTriangles,sceneTriangles,cellStart,cell);
+    for (int i = 0; i < numTriangles; i++) {
+        HitRecord h = mollerTrumbore(ray, sceneTriangles[i]);
 
         if (h.hit && (!best.hit || h.distance < best.distance)) {
             best = h;
         }
     }
+
     rayColors[idx] = phong(best, cameraPos, scene);
+    return;
+
+    // // AABB Optimizations attempt
+    // HitRecord best;
+    // best.hit = false;
+
+    // for (int i = 0; i < n; i++) {
+    //     int cell = cells[i];
+
+    //     if (cell < 0 || cell >= numCells) {
+    //         printf("BAD CELL: %d\n", cell);
+    //         continue;
+    //     }
+    //     HitRecord h = findIntersectingTriangle(ray,cellTriangles,sceneTriangles,cellStart,cell);
+
+    //     if (h.hit && (!best.hit || h.distance < best.distance)) {
+    //         best = h;
+    //     }
+    // }
+    // rayColors[idx] = phong(best, cameraPos, scene);
 }
 
 
 
 int main() {
+    struct timespec start, stop; 
+    double time;
+    if( clock_gettime(CLOCK_REALTIME, &start) == -1) { perror("clock gettime");}
+
     vector<Point3> vertexBuffer;
     vector<uint32_t> indexBuffer;
     vector<Vec3> normalBuffer;
@@ -440,6 +445,11 @@ int main() {
     
     
     delete[] rayColors;
+
+    if( clock_gettime( CLOCK_REALTIME, &stop) == -1 ) { perror("clock gettime");}		
+    time = (stop.tv_sec - start.tv_sec)+ (double)(stop.tv_nsec - start.tv_nsec)/1e9;
+    
+    printf("Execution time = %f sec\n",time);	
 
     return 0;
 }

@@ -8,12 +8,18 @@
 #include <cuda_runtime.h>
 #include <cstdio>
 #include <time.h>
-#include <iostream>
+#include <vector>
+#include <sstream>
+#include <iomanip>
+#include <chrono>
+
 
 #include "rayTrace_gpu.h"
 #include "color.h"
+#include "March.h"
+#include "SPH.h"
 
-#define FRAMES 500
+#define FRAMES 20
 #define BOXDIMENSION 2
 
 using std::vector;
@@ -38,7 +44,7 @@ Color phong(const HitRecord& pos,
     Vec3 N = pos.interpolatedNormal();
     Vec3 L = (scene.light.coords() - pos.point).normalized();
     Vec3 V = (cameraPos - pos.point).normalized();
-    Vec3 R = reflection(L, N);
+    Vec3 R = reflect(L, N);
 
     double diffuse = fmax(0.0, N.dot(L));
     double spec    = pow(fmax(0.0, R.dot(V)), SHININESS);
@@ -224,7 +230,9 @@ void computeRayColors(Color* rayColors,
     int idx = r * width + c;
 
     // variables for ray tracing
-    Point3 cameraPos = rightCorner;
+    // FOR CAMERA AT UPPER RIGHT
+    Point3 cameraPos = rightCorner; 
+
     double imagePlaneDistance = 1;
     double theta = PI/4;
     double planeHeight = 2 * imagePlaneDistance * tan(theta/2);
@@ -243,62 +251,60 @@ void computeRayColors(Color* rayColors,
     Vec3 cameraRight = (cross(cameraForward, sceneUp)).normalized(); 
     Vec3 cameraUp = cross(cameraRight, cameraForward);
 
+    camera at top right
     Point3 m = cameraPos + cameraRight * m_x + cameraUp * m_y + cameraForward * m_z;
     Vec3 dir = m - cameraPos;
     Ray ray(cameraPos, dir);
-
     
     // ex: rightCorner = (1000, 1000, 1000), sceneCenter = (500, 500, 500), calculate leftCorner to be (0, 0, 0)
-    
-    int numCells = BOXDIMENSION*BOXDIMENSION*BOXDIMENSION;
-    int cells[128];
-    int n = findIntersectingCubes(ray, rightCorner, leftCorner, BOXDIMENSION, cells, 128);
-    if (n < 0 || n > 128) {
-        printf("BAD N: %d\n", n);
-        return;
-    }
 
-    // // Original version
-    // HitRecord best;
-    // best.hit = false;
-
-    // for (int i = 0; i < numTriangles; i++) {
-    //     HitRecord h = mollerTrumbore(ray, sceneTriangles[i]);
-
-    //     if (h.hit && (!best.hit || h.distance < best.distance)) {
-    //         best = h;
-    //     }
-    // }
-
-    // rayColors[idx] = phong(best, cameraPos, scene);
-    // return;
-
-    // AABB Optimizations attempt
+    // Original version
     HitRecord best;
     best.hit = false;
 
-    for (int i = 0; i < n; i++) {
-        int cell = cells[i];
-
-        if (cell < 0 || cell >= numCells) {
-            printf("BAD CELL: %d\n", cell);
-            continue;
-        }
-        HitRecord h = findIntersectingTriangle(ray,cellTriangles,sceneTriangles,cellStart,cell);
+    for (int i = 0; i < numTriangles; i++) {
+        HitRecord h = mollerTrumbore(ray, sceneTriangles[i]);
 
         if (h.hit && (!best.hit || h.distance < best.distance)) {
             best = h;
         }
     }
+
     rayColors[idx] = phong(best, cameraPos, scene);
+    return;
+
 }
 
 
 
 int main() {
+    // time constants
     struct timespec start, stop; 
     double time;
     if( clock_gettime(CLOCK_REALTIME, &start) == -1) { perror("clock gettime");}
+    
+    SPH sim;
+    printf("Number of particles: %ld\n", sim.particles.size());
+    // the box outline
+    static const Vec3 boxCorners[8] = {
+    {sim.BMIN,sim.BMIN,sim.BMIN},
+    {sim.BMAX,sim.BMIN,sim.BMIN},
+    {sim.BMAX, sim.BMAX,sim.BMIN},
+    {sim.BMIN, sim.BMAX,sim.BMIN},
+    {sim.BMIN,sim.BMIN, sim.BMAX},
+    {sim.BMAX,sim.BMIN, sim.BMAX},
+    {sim.BMAX, sim.BMAX, sim.BMAX},
+    {sim.BMIN, sim.BMAX, sim.BMAX}
+    };
+    static constexpr int boxEdges[12][2] = {
+    {0,1},{1,2},{2,3},{3,0}, {4,5},{5,6},{6,7},{7,4}, {0,4},{1,5},{2,6},{3,7}
+    };
+    Point3 leftCorner  = boxCorners[0];   // {BMIN, BMIN, BMIN}
+    Point3 rightCorner = boxCorners[6];   // {BMAX, BMAX, BMAX}
+
+    // num sub-steps per rendered frame
+    constexpr int SUBSTEPS = 20;
+
 
     vector<Point3> vertexBuffer;
     vector<uint32_t> indexBuffer;
@@ -306,11 +312,27 @@ int main() {
     Color* rayColors = new Color[IMAGE_HEIGHT * IMAGE_WIDTH];
 
     for(int frame = 0; frame < FRAMES; frame++){
+        printf("FRAME: #%d\n", frame);
+
+        auto physics_start = std::chrono::steady_clock::now();
+        for (int s = 0; s < SUBSTEPS; ++s) sim.step();
+
+        sim.syncToHost(); // important!
+
+        auto physics_end = std::chrono::steady_clock::now();
+        int64_t physics_elapsed = std::chrono::duration_cast<std::chrono::nanoseconds>(physics_end - physics_start).count();
+        printf("\tdone with the physics\n");
+        printf("\tphysics benchmarking:\n\t\t%ld ns elapsed\n\t\t%ld particles simulated\n\t\t%d substeps\n\t\t~%ld ns/sim step\n",
+            physics_elapsed, sim.particles.size(), SUBSTEPS, physics_elapsed/SUBSTEPS);
 
         // clear buffers for every new frame
-        vertexBuffer.clear();
-        indexBuffer.clear();
+	    vertexBuffer.clear();
+	    indexBuffer.clear();
         normalBuffer.clear();
+
+	    buildScalarField(sim.particles);
+	    marchCubes(vertexBuffer, indexBuffer, vertexBuffer);
+        printf("\tbuffers created\n");
 
         // file output information
         std::ofstream outFile("frames/image" + std::to_string(frame) + ".ppm");
@@ -324,8 +346,6 @@ int main() {
         generateSphere(vertexBuffer, indexBuffer, normalBuffer, frame);
         
         // place camera
-        Point3 leftCorner(0, 0, 0);
-        Point3 rightCorner(1000, 1000, 1000);
         Point3 sceneCenter = leftCorner + ((rightCorner-leftCorner)/2);//TODO RN computeCameraPosition(leftCorner, rightCorner);
 
 
@@ -440,6 +460,8 @@ int main() {
         }
 
         outFile.close();
+        printf("\tImage rendered\n");
+        printf("Complete.\n");
 
     }
     

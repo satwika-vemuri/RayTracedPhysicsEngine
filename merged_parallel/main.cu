@@ -331,7 +331,7 @@ int main() {
         normalBuffer.clear();
 
 	    buildScalarField(sim.particles);
-	    marchCubes(vertexBuffer, indexBuffer, vertexBuffer);
+	    marchCubes(vertexBuffer, indexBuffer, normalBuffer);
         printf("\tbuffers created\n");
 
         // file output information
@@ -344,7 +344,7 @@ int main() {
 
         // fill buffers with data from test function
         generateSphere(vertexBuffer, indexBuffer, normalBuffer, frame);
-        
+
         // place camera
         Point3 sceneCenter = leftCorner + ((rightCorner-leftCorner)/2);//TODO RN computeCameraPosition(leftCorner, rightCorner);
 

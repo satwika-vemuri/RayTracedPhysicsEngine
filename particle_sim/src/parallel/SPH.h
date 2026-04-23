@@ -45,6 +45,7 @@ public:
     ~SPH();
     void reset();
     void step();
+    void syncToHost();
 
 private:
     Particle* d_particles;

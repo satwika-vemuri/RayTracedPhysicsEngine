@@ -225,14 +225,12 @@ void SPH::reset() {
         cudaMalloc(&d_hashNext, n * sizeof(int));
         maxParticles = n;
     }
+    cudaMemcpy(d_particles, particles.data(), n * sizeof(Particle), cudaMemcpyHostToDevice);
 }
 
 void SPH::step() {
     int n = (int)particles.size();
     if (n == 0) return;
-
-    // copy particles from host to device
-    cudaMemcpy(d_particles, particles.data(), n * sizeof(Particle), cudaMemcpyHostToDevice);
 
     // clear cash to all -1
     cudaMemset(d_hashHead, 0xFF, GpuHash::HASH_SIZE * sizeof(int));
@@ -246,7 +244,10 @@ void SPH::step() {
     computeDensityPressure_kernel<<<numBlocks, BLOCK>>>(d_particles, n, gpuHash);
     computeForces_kernel <<<numBlocks, BLOCK>>>(d_particles, n, gpuHash);
     integrate_kernel <<<numBlocks, BLOCK>>>(d_particles, n);
+}
 
-    // device to host
+void SPH::syncToHost() {
+    int n = (int)particles.size();
+    if (n == 0) return;
     cudaMemcpy(particles.data(), d_particles, n * sizeof(Particle), cudaMemcpyDeviceToHost);
 }

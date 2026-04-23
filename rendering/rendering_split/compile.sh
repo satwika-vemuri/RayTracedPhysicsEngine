@@ -1,0 +1,1 @@
+nvcc -ccbin /usr/bin/gcc-14 -std=c++17 -O2 \src/parallel/rayTrace.cu src/parallel/main.cu \-I. -lstdc++ -lm -o render_parallel

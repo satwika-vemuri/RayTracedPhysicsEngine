@@ -108,9 +108,9 @@ HitRecord findIntersectingTriangle(const Ray& ray,
 // Function assumes that leftCorner and rightCorner define a CUBE (same size dimensions of x,y,z)
 
 // These functions are hard to understand. What this is is essentially doing is
-// it is initially cehcking wether or no a given ray has hit a given cell. If not auto returns false.
+// it is initially cehcking wether or not a given ray has hit a given cell. If not auto returns false.
 // if it has indeed hit our cell (cube) it will instead retyrn the an entering time and an exiting time for the ray
-// whats good about this is you can then tyou know ray passes exactly bwteen origin + tmin * direction to origin + tmax * direction
+// whats good about this is you can then know ray passes exactly bwteen origin + tmin * direction to origin + tmax * direction
 inline __device__
 bool rayIntersectsAABB(const Ray& ray,
                        const Point3& minB, const Point3& maxB,
@@ -162,7 +162,6 @@ bool rayIntersectsAABB(const Ray& ray,
 
 // ex: rightCorner = (1000, 1000, 1000), leftCorner = (0, 0, 0)
 // Function assumes that leftCorner and rightCorner define a CUBE (same size dimensions of x,y,z)
-// heavily modified with AI
 
 
 // This func is equally scary-looking what it does is given a ray find the voxels in our case cubes that this ray hits. 

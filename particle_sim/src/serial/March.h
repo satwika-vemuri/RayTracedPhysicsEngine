@@ -17,7 +17,7 @@ void marchCubes(std::vector<Vec3> &vertexBuffer,
 //  How many cells to divide the box into along each axis.
 //  Higher = smoother mesh but slower. 32 is fine to start with.
 //  NOTE: any higher than 64 may be need to be allocated on heap. at 64 ~ 2.2MB
-inline constexpr int GRID_N = 64;
+inline constexpr int GRID_N = 256;
 // length of one voxel cell edge in world units
 // box is 3.0 wide (BMAX - BMIN = 1.5 - (-1.5)), divided by 64 cells
 inline constexpr double CELL = (SPH::BMAX - SPH::BMIN) / GRID_N;

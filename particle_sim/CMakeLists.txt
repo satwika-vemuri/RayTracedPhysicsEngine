@@ -25,6 +25,15 @@ target_compile_options(particle_sim PRIVATE
     $<$<CONFIG:Debug>:-g -fsanitize=address>
 )
 
+# serial benchmark (headless, no sfml)
+add_executable(bench_serial
+    src/serial/SPH.cpp
+    src/serial/bench.cpp
+    src/serial/March.cpp
+)
+target_include_directories(bench_serial PRIVATE src/serial)
+target_compile_options(bench_serial PRIVATE $<$<CONFIG:Release>:-O2>)
+
 # parallel (cuda) target
 include(CheckLanguage)
 check_language(CUDA)

@@ -361,12 +361,17 @@ int main() {
 	    indexBuffer.clear();
         normalBuffer.clear();
 
+        auto march_start = std::chrono::steady_clock::now();
 	    buildScalarField(sim.getParticles(),
                          (int)sim.particles.size(),
                          sim.getHashHead(),
                          sim.getHashNext());
 	    marchCubes(vertexBuffer, indexBuffer, normalBuffer);
+        cudaDeviceSynchronize();
+        auto march_end = std::chrono::steady_clock::now();
+        int64_t march_elapsed = std::chrono::duration_cast<std::chrono::nanoseconds>(march_end - march_start).count();
         printf("\tbuffers created\n");
+        printf("\tmarch benchmarking:\n\t\t%ld ns elapsed\n\t\t%ld triangles\n", march_elapsed, vertexBuffer.size()/3);
 
         // file output information
         std::ofstream outFile("frames/image" + std::to_string(frame) + ".ppm",

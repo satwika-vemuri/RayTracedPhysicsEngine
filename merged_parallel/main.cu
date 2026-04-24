@@ -19,7 +19,7 @@
 #include "March.h"
 #include "SPH.h"
 
-#define FRAMES 20
+#define FRAMES 720
 #define BOXDIMENSION 2
 
 using std::vector;

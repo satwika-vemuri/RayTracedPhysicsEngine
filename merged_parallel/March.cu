@@ -40,13 +40,11 @@ double scalar[GRID_N + 1][GRID_N + 1][GRID_N + 1];
  */
 __device__ static Vec3 d_gradNormal(Vec3 p, const double* sc) {
     int S = GRID_N + 1;
-    // clamp grid index to valid range
-    auto gi = [&](double x) { return max(0, min((int)((x - SPH::BMIN) / CELL), GRID_N)); };
-
-    double gx = sc[gi(p.x+CELL)*S*S + gi(p.y)*S + gi(p.z)] - sc[gi(p.x-CELL)*S*S + gi(p.y)*S + gi(p.z)];
-    double gy = sc[gi(p.x)*S*S + gi(p.y+CELL)*S + gi(p.z)] - sc[gi(p.x)*S*S + gi(p.y-CELL)*S + gi(p.z)];
-    double gz = sc[gi(p.x)*S*S + gi(p.y)*S + gi(p.z+CELL)] - sc[gi(p.x)*S*S + gi(p.y)*S + gi(p.z-CELL)];
-
+    #define GI(x) max(0, min((int)((x - SPH::BMIN) / CELL), GRID_N))
+    double gx = sc[GI(p.x+CELL)*S*S + GI(p.y)*S + GI(p.z)] - sc[GI(p.x-CELL)*S*S + GI(p.y)*S + GI(p.z)];
+    double gy = sc[GI(p.x)*S*S + GI(p.y+CELL)*S + GI(p.z)] - sc[GI(p.x)*S*S + GI(p.y-CELL)*S + GI(p.z)];
+    double gz = sc[GI(p.x)*S*S + GI(p.y)*S + GI(p.z+CELL)] - sc[GI(p.x)*S*S + GI(p.y)*S + GI(p.z-CELL)];
+    #undef GI
     return (-Vec3(gx, gy, gz)).normalized();
 }
 

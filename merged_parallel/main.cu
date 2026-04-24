@@ -229,9 +229,8 @@ void computeRayColors(Color* rayColors,
     if (r >= height || c >= width) return;
     int idx = r * width + c;
 
-    // variables for ray tracing
-    // FOR CAMERA AT UPPER RIGHT
-    Point3 cameraPos = rightCorner; 
+    // pull camera back and up for a proper 3/4 view of the fluid box
+    Point3 cameraPos = sceneCenter + Vec3(8.0, 6.0, 10.0);
 
     float imagePlaneDistance = 1;
     float theta = PI/4;
@@ -347,7 +346,7 @@ int main() {
         generateSphere(vertexBuffer, indexBuffer, normalBuffer, frame);
 
         // place camera
-        Point3 sceneCenter = leftCorner + ((rightCorner-leftCorner)/2);//TODO RN computeCameraPosition(leftCorner, rightCorner);
+        Point3 sceneCenter(0.0, -1.0, 0.0);
 
 
         // parse buffer data

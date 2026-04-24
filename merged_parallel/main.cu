@@ -251,7 +251,7 @@ void computeRayColors(Color* rayColors,
     Vec3 cameraRight = (cross(cameraForward, sceneUp)).normalized(); 
     Vec3 cameraUp = cross(cameraRight, cameraForward);
 
-    camera at top right
+    // camera at top right
     Point3 m = cameraPos + cameraRight * m_x + cameraUp * m_y + cameraForward * m_z;
     Vec3 dir = m - cameraPos;
     Ray ray(cameraPos, dir);
@@ -284,6 +284,7 @@ int main() {
     if( clock_gettime(CLOCK_REALTIME, &start) == -1) { perror("clock gettime");}
     
     SPH sim;
+    initMarchTables();
     printf("Number of particles: %ld\n", sim.particles.size());
     // the box outline
     static const Vec3 boxCorners[8] = {
@@ -330,8 +331,8 @@ int main() {
 	    indexBuffer.clear();
         normalBuffer.clear();
 
-	    buildScalarField(sim.particles);
-	    marchCubes(vertexBuffer, indexBuffer, vertexBuffer);
+        buildScalarField(sim.getParticles(), (int)sim.particles.size(), sim.getHashHead(), sim.getHashNext());
+        marchCubes(vertexBuffer, indexBuffer, normalBuffer);
         printf("\tbuffers created\n");
 
         // file output information
@@ -344,7 +345,7 @@ int main() {
 
         // fill buffers with data from test function
         generateSphere(vertexBuffer, indexBuffer, normalBuffer, frame);
-        
+
         // place camera
         Point3 sceneCenter = leftCorner + ((rightCorner-leftCorner)/2);//TODO RN computeCameraPosition(leftCorner, rightCorner);
 

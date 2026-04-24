@@ -1,6 +1,31 @@
 #pragma once
 #include <vector>
+#include <cuda_runtime.h>
 #include "Vec3.h"
+
+// GPU spatial hash - defined here so March.cu can reconstruct it from SPH's device pointers
+struct GpuHash {
+    static constexpr int HASH_SIZE = 65536;
+    int* d_head;
+    int* d_next;
+    double cellSize;
+
+    __host__ __device__ int cellKey(int ix, int iy, int iz) const {
+        constexpr int64_t p1 = 73856093LL;
+        constexpr int64_t p2 = 19349663LL;
+        constexpr int64_t p3 = 83492791LL;
+        int64_t h = (int64_t)ix * p1 ^ (int64_t)iy * p2 ^ (int64_t)iz * p3;
+        return (int)(h & (int64_t)(HASH_SIZE - 1));
+    }
+
+    __device__ void insert(int idx, const Vec3& pos) {
+        int ix = (int)floor(pos.x / cellSize);
+        int iy = (int)floor(pos.y / cellSize);
+        int iz = (int)floor(pos.z / cellSize);
+        int key = cellKey(ix, iy, iz);
+        d_next[idx] = atomicExch(&d_head[key], idx);
+    }
+};
 
 struct Particle {
     Vec3 pos;
@@ -41,11 +66,17 @@ public:
     static constexpr double K_VISC = 45.0 / (K_PI * H*H*H*H*H*H);
 
     std::vector<Particle> particles; // host copy of particles
+
     SPH();
     ~SPH();
     void reset();
     void step();
     void syncToHost();
+
+    // for March.cu
+    Particle* getParticles() const { return d_particles; }
+    int* getHashHead()       const { return d_hashHead; }
+    int* getHashNext()       const { return d_hashNext; }
 
 private:
     Particle* d_particles;

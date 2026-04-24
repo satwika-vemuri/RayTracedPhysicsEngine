@@ -21,7 +21,7 @@
 #include "SPH.h"
 
 #define FRAMES 720
-#define BOXDIMENSION 2
+#define BOXDIMENSION 64
 
 using std::vector;
 
@@ -374,9 +374,6 @@ int main() {
         } else {
             std::cerr << "Unable to open file";
         }
-
-        // fill buffers with data from test function
-        generateSphere(vertexBuffer, indexBuffer, normalBuffer, frame);
 
         // place camera
         Point3 sceneCenter(0.0, -1.0, 0.0);

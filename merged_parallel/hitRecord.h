@@ -8,9 +8,9 @@ struct HitRecord {
 public:
     bool hit;
     const Triangle* tri;
-    double distance;
-    double u;
-    double v;
+    float distance;
+    float u;
+    float v;
     Point3 point;
 
     // Constructors
@@ -21,13 +21,13 @@ public:
 
     __host__ __device__
     HitRecord(const Triangle* t, const Point3& p,
-              double dist, double bu, double bv)
+              float dist, float bu, float bv)
         : hit(true), tri(t), distance(dist),
           u(bu), v(bv), point(p) {}
 
     // Methods
     __host__ __device__
-    double w() const {
+    float w() const {
         return 1.0 - u - v;
     }
 

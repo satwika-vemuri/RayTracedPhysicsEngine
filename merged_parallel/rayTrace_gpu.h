@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <vector>
+#include <algorithm>
 #include <cmath>
 #include <cuda_runtime.h>
 
@@ -24,45 +25,46 @@ std::vector<Triangle> constructSceneTriangles(
     const std::vector<uint32_t>& indexBuffer,
     const std::vector<Vec3>& normalBuffer);
 
+
 Point3 computeCameraPosition(const Point3& leftCorner, const Point3& rightCorner);
 
 // Device-side Moller-Trumbore intersection
 inline __device__
 HitRecord mollerTrumbore(const Ray& ray, const Triangle& tri) {
-    const double EPSILON = 1e-8;
+    const float EPSILON = 1e-8f;
 
-    double e1x = tri.v2.x - tri.v1.x;
-    double e1y = tri.v2.y - tri.v1.y;
-    double e1z = tri.v2.z - tri.v1.z;
+    float e1x = tri.v2.x - tri.v1.x;
+    float e1y = tri.v2.y - tri.v1.y;
+    float e1z = tri.v2.z - tri.v1.z;
 
-    double e2x = tri.v3.x - tri.v1.x;
-    double e2y = tri.v3.y - tri.v1.y;
-    double e2z = tri.v3.z - tri.v1.z;
+    float e2x = tri.v3.x - tri.v1.x;
+    float e2y = tri.v3.y - tri.v1.y;
+    float e2z = tri.v3.z - tri.v1.z;
 
-    double pvecX = ray.direction.y * e2z - ray.direction.z * e2y;
-    double pvecY = ray.direction.z * e2x - ray.direction.x * e2z;
-    double pvecZ = ray.direction.x * e2y - ray.direction.y * e2x;
+    float pvecX = ray.direction.y * e2z - ray.direction.z * e2y;
+    float pvecY = ray.direction.z * e2x - ray.direction.x * e2z;
+    float pvecZ = ray.direction.x * e2y - ray.direction.y * e2x;
 
-    double det = e1x * pvecX + e1y * pvecY + e1z * pvecZ;
-    if (std::fabs(det) < EPSILON) return HitRecord();
+    float det = e1x * pvecX + e1y * pvecY + e1z * pvecZ;
+    if (fabsf(det) < EPSILON) return HitRecord();
 
-    double invDet = 1.0 / det;
+    float invDet = 1.0f / det;
 
-    double tvecX = ray.origin.x - tri.v1.x;
-    double tvecY = ray.origin.y - tri.v1.y;
-    double tvecZ = ray.origin.z - tri.v1.z;
+    float tvecX = ray.origin.x - tri.v1.x;
+    float tvecY = ray.origin.y - tri.v1.y;
+    float tvecZ = ray.origin.z - tri.v1.z;
 
-    double u = (tvecX * pvecX + tvecY * pvecY + tvecZ * pvecZ) * invDet;
+    float u = (tvecX * pvecX + tvecY * pvecY + tvecZ * pvecZ) * invDet;
     if (u < 0.0 || u > 1.0) return HitRecord();
 
-    double qvecX = tvecY * e1z - tvecZ * e1y;
-    double qvecY = tvecZ * e1x - tvecX * e1z;
-    double qvecZ = tvecX * e1y - tvecY * e1x;
+    float qvecX = tvecY * e1z - tvecZ * e1y;
+    float qvecY = tvecZ * e1x - tvecX * e1z;
+    float qvecZ = tvecX * e1y - tvecY * e1x;
 
-    double baryV = (ray.direction.x * qvecX + ray.direction.y * qvecY + ray.direction.z * qvecZ) * invDet;
+    float baryV = (ray.direction.x * qvecX + ray.direction.y * qvecY + ray.direction.z * qvecZ) * invDet;
     if (baryV < 0.0 || u + baryV > 1.0) return HitRecord();
 
-    double rayT = (e2x * qvecX + e2y * qvecY + e2z * qvecZ) * invDet;
+    float rayT = (e2x * qvecX + e2y * qvecY + e2z * qvecZ) * invDet;
     if (rayT < EPSILON) return HitRecord();
 
     Point3 intersection(
@@ -80,7 +82,7 @@ HitRecord findIntersectingTriangle(const Ray& ray,
                                    Triangle* sceneTriangles,
                                    int* cellStart,
                                    int boxNumber) {
-    double closestDistance = INFINITY;
+    float closestDistance = INFINITY;
     HitRecord closestHit;
     closestHit.hit = false;
     int start = cellStart[boxNumber];
@@ -89,7 +91,7 @@ HitRecord findIntersectingTriangle(const Ray& ray,
     // go through all triangles for appropriate box
     for(int i = start; i < end; i++) {
         int triIdx = cellTriangles[i];
-        Triangle tri = sceneTriangles[triIdx];
+        const Triangle& tri = sceneTriangles[triIdx];
 
         HitRecord hit = mollerTrumbore(ray, tri);
         if (hit.hit && hit.distance < closestDistance) {
@@ -101,6 +103,14 @@ HitRecord findIntersectingTriangle(const Ray& ray,
     return closestHit;
 }
 
+
+// ex: rightCorner = (1000, 1000, 1000), leftCorner = (0, 0, 0)
+// Function assumes that leftCorner and rightCorner define a CUBE (same size dimensions of x,y,z)
+
+// These functions are hard to understand. What this is is essentially doing is
+// it is initially cehcking wether or no a given ray has hit a given cell. If not auto returns false.
+// if it has indeed hit our cell (cube) it will instead retyrn the an entering time and an exiting time for the ray
+// whats good about this is you can then tyou know ray passes exactly bwteen origin + tmin * direction to origin + tmax * direction
 inline __device__
 bool rayIntersectsAABB(const Ray& ray,
                        const Point3& minB, const Point3& maxB,
@@ -153,6 +163,10 @@ bool rayIntersectsAABB(const Ray& ray,
 // ex: rightCorner = (1000, 1000, 1000), leftCorner = (0, 0, 0)
 // Function assumes that leftCorner and rightCorner define a CUBE (same size dimensions of x,y,z)
 // heavily modified with AI
+
+
+// This func is equally scary-looking what it does is given a ray find the voxels in our case cubes that this ray hits. 
+// it then writes the ids of the cubes as into the cells array. You can then iterate through that to see which voxels were hit.
 inline __device__
 int findIntersectingCubes(const Ray& ray,
                           const Point3& leftCorner,
@@ -163,22 +177,18 @@ int findIntersectingCubes(const Ray& ray,
 {
     float tmin, tmax;
 
-    // 1. intersect ray with full grid AABB
+    // Did the ray even hit the schene
     if (!rayIntersectsAABB(ray, leftCorner, rightCorner, tmin, tmax)) {
         return 0;
     }
 
-    float t = (tmin > 1e-4f) ? tmin : tmax;
-    if (t < 0.0f) return 0;
+    float t = fmaxf(0.0f, tmin);
 
+    // size of the cube
     Vec3 interval = (rightCorner - leftCorner) / boxDim;
 
     // 2. entry point into grid
     Point3 p = ray.origin + ray.direction * t;
-
-    float ox = ray.origin.x;
-    float oy = ray.origin.y;
-    float oz = ray.origin.z;
 
     float dx = ray.direction.x;
     float dy = ray.direction.y;
@@ -194,10 +204,10 @@ int findIntersectingCubes(const Ray& ray,
     y = max(0, min(boxDim - 1, y));
     z = max(0, min(boxDim - 1, z));
 
-    // 4. step direction
-    int stepX = (dx > 0) ? 1 : -1;
-    int stepY = (dy > 0) ? 1 : -1;
-    int stepZ = (dz > 0) ? 1 : -1;
+    // 4. step direction: DDA must move backward for negative ray directions.
+    int stepX = (dx > 0) ? 1 : ((dx < 0) ? -1 : 0);
+    int stepY = (dy > 0) ? 1 : ((dy < 0) ? -1 : 0);
+    int stepZ = (dz > 0) ? 1 : ((dz < 0) ? -1 : 0);
 
     // 5. voxel boundary in each axis
     float voxelX = leftCorner.x + (x + (stepX > 0)) * interval.x;
@@ -216,6 +226,8 @@ int findIntersectingCubes(const Ray& ray,
     // 7. traversal
     int count = 0;
 
+    const float tEps = 1e-6f;
+
     for (int i = 0; i < maxCells; i++) {
 
         int idx = x + y * boxDim + z * boxDim * boxDim;
@@ -223,23 +235,21 @@ int findIntersectingCubes(const Ray& ray,
 
         if (count >= maxCells) break;
 
-        // step to next voxel
-        if (tMaxX < tMaxY) {
-            if (tMaxX < tMaxZ) {
-                x += stepX;
-                tMaxX += tDeltaX;
-            } else {
-                z += stepZ;
-                tMaxZ += tDeltaZ;
-            }
-        } else {
-            if (tMaxY < tMaxZ) {
-                y += stepY;
-                tMaxY += tDeltaY;
-            } else {
-                z += stepZ;
-                tMaxZ += tDeltaZ;
-            }
+        // Step across every axis touched at the next boundary so edge/corner
+        // crossings do not skip voxels.
+        float nextT = fminf(tMaxX, fminf(tMaxY, tMaxZ));
+
+        if (fabsf(tMaxX - nextT) <= tEps) {
+            x += stepX;
+            tMaxX += tDeltaX;
+        }
+        if (fabsf(tMaxY - nextT) <= tEps) {
+            y += stepY;
+            tMaxY += tDeltaY;
+        }
+        if (fabsf(tMaxZ - nextT) <= tEps) {
+            z += stepZ;
+            tMaxZ += tDeltaZ;
         }
 
         // exit grid

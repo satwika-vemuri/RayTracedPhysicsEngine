@@ -6,7 +6,7 @@
 
 // grid-based spatial hash for O(1) amortized neighbor lookup
 class SpatialHash {
-    double cellSize;
+    float cellSize;
     std::unordered_map<int64_t, std::vector<int>> table;
 
     int64_t cellKey(int ix, int iy, int iz) const {
@@ -17,7 +17,7 @@ class SpatialHash {
     }
 
 public:
-    explicit SpatialHash(double cellSize) : cellSize(cellSize) {
+    explicit SpatialHash(float cellSize) : cellSize(cellSize) {
         table.reserve(4096);
     }
 
@@ -30,7 +30,7 @@ public:
         table[cellKey(ix, iy, iz)].push_back(particleIdx);
     }
 
-    void query(const Vec3& pos, double radius, std::vector<int>& out) const {
+    void query(const Vec3& pos, float radius, std::vector<int>& out) const {
         out.clear();
         int ir = std::ceil(radius / cellSize);
         int ix = std::floor(pos.x / cellSize);

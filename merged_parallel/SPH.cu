@@ -9,19 +9,19 @@
 *****************************
 ****************************/
 
-__device__ static double d_w_poly6(double r2) {
+__device__ static float d_w_poly6(float r2) {
     if (r2 >= SPH::H2) return 0.0;
-    double d = SPH::H2 - r2;
+    float d = SPH::H2 - r2;
     return SPH::K_POLY6 * d * d * d;
 }
 
-__device__ static Vec3 d_grad_w_spiky(const Vec3& rij, double r) {
-    if (r >= SPH::H || r < 1e-6) return {};
-    double d = SPH::H - r;
+__device__ static Vec3 d_grad_w_spiky(const Vec3& rij, float r) {
+    if (r >= SPH::H || r < 1e-6f) return {};
+    float d = SPH::H - r;
     return rij * (SPH::K_SPIKY * d * d / r);
 }
 
-__device__ static double d_lap_w_visc(double r) {
+__device__ static float d_lap_w_visc(float r) {
     if (r >= SPH::H) return 0.0;
     return SPH::K_VISC * (SPH::H - r);
 }
@@ -45,7 +45,7 @@ __global__ void computeDensityPressure_kernel(Particle* particles, int n, GpuHas
     if (i >= n) return;
 
     const Vec3 pos_i = particles[i].pos;
-    double density = 0.0;
+    float density = 0.0;
 
     int ix = (int)floor(pos_i.x / hash.cellSize);
     int iy = (int)floor(pos_i.y / hash.cellSize);
@@ -69,13 +69,13 @@ __global__ void computeDensityPressure_kernel(Particle* particles, int n, GpuHas
         }
     }
 
-    density = fmax(density, SPH::RHO0 * 0.1);
+    density = fmaxf(density, SPH::RHO0 * 0.1f);
     particles[i].density = density;
 
     // tait equation of state from STAR paper
-    double ratio = density / SPH::RHO0;
-    double r7 = ratio * ratio * ratio * ratio * ratio * ratio * ratio;
-    particles[i].pressure = fmax(0.0, SPH::B_PRESS * (r7 - 1.0));
+    float ratio = density / SPH::RHO0;
+    float r7 = ratio * ratio * ratio * ratio * ratio * ratio * ratio;
+    particles[i].pressure = fmaxf(0.0f, SPH::B_PRESS * (r7 - 1.0f));
 }
 
 // one thread per particle: compute pressure and viscosity accelerations
@@ -86,8 +86,8 @@ __global__ void computeForces_kernel(Particle* particles, int n, GpuHash hash) {
     const Vec3 gravity{0.0, -SPH::GRAVITY, 0.0};
     const Vec3 pos_i = particles[i].pos;
     const Vec3 vel_i = particles[i].vel;
-    const double rho_i = particles[i].density;
-    const double prs_i = particles[i].pressure;
+    const float rho_i = particles[i].density;
+    const float prs_i = particles[i].pressure;
 
     Vec3 a_press{}, a_visc{};
 
@@ -103,10 +103,10 @@ __global__ void computeForces_kernel(Particle* particles, int n, GpuHash hash) {
                 while (j != -1) {
                     if (j != i) {
                         Vec3 rij = pos_i - particles[j].pos;
-                        double r2 = rij.length2();
-                        if (r2 < SPH::H2 && r2 > 1e-12) {
-                            double r = sqrt(r2);
-                            double pterm = prs_i / (rho_i * rho_i)
+                        float r2 = rij.length2();
+                        if (r2 < SPH::H2 && r2 > 1e-12f) {
+                            float r = sqrtf(r2);
+                            float pterm = prs_i / (rho_i * rho_i)
                             + particles[j].pressure / (particles[j].density * particles[j].density);
                             a_press += d_grad_w_spiky(rij, r) * (-SPH::MASS * pterm);
                             a_visc  += (particles[j].vel - vel_i)
@@ -173,9 +173,9 @@ SPH::~SPH() {
 
 void SPH::reset() {
     particles.clear();
-    for (double x = (0.5 * BMIN); x < (0.5 * BMAX); x += SPACING)
-        for (double y = BMIN + SPACING; y < (0.5 * BMAX); y += SPACING) 
-            for (double z = BMIN + SPACING; z < BMAX - SPACING; z += SPACING) {
+    for (float x = (0.5 * BMIN); x < (0.5 * BMAX); x += SPACING)
+        for (float y = BMIN + SPACING; y < (0.5 * BMAX); y += SPACING) 
+            for (float z = BMIN + SPACING; z < BMAX - SPACING; z += SPACING) {
                 Particle p;
                 p.pos = {x, y, z};
                 p.vel = {};

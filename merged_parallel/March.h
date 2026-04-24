@@ -6,6 +6,8 @@
 #include <algorithm>
 #include <cstdint>
 
+#define LAPLACE_SMOOTH 1  // set to 0 to disable
+
 void initMarchTables();
 void buildScalarField(Particle* d_particles, int n, int* d_hashHead, int* d_hashNext);
 void marchCubes(std::vector<Vec3> &vertexBuffer,

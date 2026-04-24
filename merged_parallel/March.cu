@@ -232,8 +232,10 @@ void buildScalarField(Particle* d_particles, int n, int* d_hashHead, int* d_hash
     int numBlocks = (GRID_N + BLOCK) / BLOCK;
     buildScalarField_kernel<<<dim3(numBlocks,numBlocks,numBlocks), dim3(BLOCK,BLOCK,BLOCK)>>>(d_particles, n, hash, d_scalar);
     zeroifyBoundary_kernel<<<dim3((GRID_N+15)/16,(GRID_N+15)/16), dim3(16,16)>>>(d_scalar);
+#if LAPLACE_SMOOTH
     laplacianSmooth_kernel<<<dim3(numBlocks,numBlocks,numBlocks), dim3(BLOCK,BLOCK,BLOCK)>>>(d_scalar, d_scalar_tmp);
     std::swap(d_scalar, d_scalar_tmp);
+#endif
 }
 
 /*

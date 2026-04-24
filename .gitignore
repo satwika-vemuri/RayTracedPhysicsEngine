@@ -43,3 +43,5 @@ example_frames/
 *.mp4
 *.pdf
 *.txt
+
+test_results/

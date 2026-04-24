@@ -433,7 +433,9 @@ int main(int argc, char** argv) {
     int numCells = cfg.boxDimension * cfg.boxDimension * cfg.boxDimension;
 
     cudaMalloc(&d_rayColors, IMAGE_WIDTH * IMAGE_HEIGHT * sizeof(Color));
-    cudaMalloc(&d_cellStart, (numCells + 1) * sizeof(int));
+    if (!cfg.bruteForce) {
+        cudaMalloc(&d_cellStart, (numCells + 1) * sizeof(int));
+    }
 
     std::ofstream csv(cfg.csvPath, std::ios::out);
     if (!csv.is_open()) {
@@ -508,55 +510,62 @@ int main(int argc, char** argv) {
                                     tri_construct_end - tri_construct_start).count());
         stats.num_triangles = sceneTriangles.size();
 
-        auto binning_start = std::chrono::steady_clock::now();
-        vector<vector<int>> trianglesPerBox = assignTriangles(sceneTriangles, leftCorner, rightCorner, cfg.boxDimension);
-        auto binning_end = std::chrono::steady_clock::now();
-        stats.binning_ms = nsToMs(std::chrono::duration_cast<std::chrono::nanoseconds>(
-                                binning_end - binning_start).count());
-
-        size_t totalAssigned = 0;
-        size_t nonemptyCells = 0;
-        size_t maxPerCell = 0;
-        for (const auto& cell : trianglesPerBox) {
-            totalAssigned += cell.size();
-            if (!cell.empty()) {
-                nonemptyCells++;
-                maxPerCell = std::max(maxPerCell, cell.size());
-            }
-        }
-        stats.flat_triangle_indices = totalAssigned;
-        stats.nonempty_cells = nonemptyCells;
-        stats.max_tris_per_cell = maxPerCell;
-        stats.avg_tris_per_nonempty_cell = (nonemptyCells > 0)
-            ? static_cast<double>(totalAssigned) / static_cast<double>(nonemptyCells)
-            : 0.0;
-        stats.duplication_factor = sceneTriangles.empty()
-            ? 0.0
-            : static_cast<double>(totalAssigned) / static_cast<double>(sceneTriangles.size());
-
-        auto flatten_start = std::chrono::steady_clock::now();
         vector<int> cellStart(numCells + 1, 0);
         vector<int> flatTriangleIdx;
+        if (!cfg.bruteForce) {
+            auto binning_start = std::chrono::steady_clock::now();
+            vector<vector<int>> trianglesPerBox = assignTriangles(sceneTriangles, leftCorner, rightCorner, cfg.boxDimension);
+            auto binning_end = std::chrono::steady_clock::now();
+            stats.binning_ms = nsToMs(std::chrono::duration_cast<std::chrono::nanoseconds>(
+                                    binning_end - binning_start).count());
 
-        for (int i = 0; i < numCells; i++) {
-            cellStart[i + 1] = cellStart[i] + trianglesPerBox[i].size();
-        }
-
-        flatTriangleIdx.resize(cellStart[numCells]);
-        vector<int> offset = cellStart;
-
-        for (int i = 0; i < numCells; i++) {
-            for (int triIdx : trianglesPerBox[i]) {
-                if (triIdx < 0 || triIdx >= (int)sceneTriangles.size()) {
-                    printf("BAD TRI IDX: %d\n", triIdx);
-                    continue;
+            size_t totalAssigned = 0;
+            size_t nonemptyCells = 0;
+            size_t maxPerCell = 0;
+            for (const auto& cell : trianglesPerBox) {
+                totalAssigned += cell.size();
+                if (!cell.empty()) {
+                    nonemptyCells++;
+                    maxPerCell = std::max(maxPerCell, cell.size());
                 }
-                flatTriangleIdx[offset[i]++] = triIdx;
             }
+            stats.flat_triangle_indices = totalAssigned;
+            stats.nonempty_cells = nonemptyCells;
+            stats.max_tris_per_cell = maxPerCell;
+            stats.avg_tris_per_nonempty_cell = (nonemptyCells > 0)
+                ? static_cast<double>(totalAssigned) / static_cast<double>(nonemptyCells)
+                : 0.0;
+            stats.duplication_factor = sceneTriangles.empty()
+                ? 0.0
+                : static_cast<double>(totalAssigned) / static_cast<double>(sceneTriangles.size());
+
+            auto flatten_start = std::chrono::steady_clock::now();
+            for (int i = 0; i < numCells; i++) {
+                cellStart[i + 1] = cellStart[i] + trianglesPerBox[i].size();
+            }
+
+            flatTriangleIdx.resize(cellStart[numCells]);
+            vector<int> offset = cellStart;
+
+            for (int i = 0; i < numCells; i++) {
+                for (int triIdx : trianglesPerBox[i]) {
+                    if (triIdx < 0 || triIdx >= (int)sceneTriangles.size()) {
+                        printf("BAD TRI IDX: %d\n", triIdx);
+                        continue;
+                    }
+                    flatTriangleIdx[offset[i]++] = triIdx;
+                }
+            }
+            auto flatten_end = std::chrono::steady_clock::now();
+            stats.flatten_ms = nsToMs(std::chrono::duration_cast<std::chrono::nanoseconds>(
+                                    flatten_end - flatten_start).count());
+        } else {
+            stats.flat_triangle_indices = sceneTriangles.size();
+            stats.nonempty_cells = sceneTriangles.empty() ? 0 : 1;
+            stats.max_tris_per_cell = sceneTriangles.size();
+            stats.avg_tris_per_nonempty_cell = sceneTriangles.size();
+            stats.duplication_factor = sceneTriangles.empty() ? 0.0 : 1.0;
         }
-        auto flatten_end = std::chrono::steady_clock::now();
-        stats.flatten_ms = nsToMs(std::chrono::duration_cast<std::chrono::nanoseconds>(
-                                flatten_end - flatten_start).count());
 
         int numTriangles = sceneTriangles.size();
         if ((size_t)numTriangles > triCapacity) {
@@ -566,7 +575,7 @@ int main(int argc, char** argv) {
             triCapacity = numTriangles;
             cudaMalloc(&d_sceneTriangles, triCapacity * sizeof(Triangle));
         }
-        if (flatTriangleIdx.size() > flatCapacity) {
+        if (!cfg.bruteForce && flatTriangleIdx.size() > flatCapacity) {
             if (d_cellTriangles) {
                 cudaFree(d_cellTriangles);
             }
@@ -575,19 +584,23 @@ int main(int argc, char** argv) {
         }
 
         auto h2d_start = std::chrono::steady_clock::now();
-        stats.h2d_bytes =
-            numTriangles * sizeof(Triangle) +
-            (numCells + 1) * sizeof(int) +
-            flatTriangleIdx.size() * sizeof(int);
+        stats.h2d_bytes = numTriangles * sizeof(Triangle);
+        if (!cfg.bruteForce) {
+            stats.h2d_bytes +=
+                (numCells + 1) * sizeof(int) +
+                flatTriangleIdx.size() * sizeof(int);
+        }
 
         cudaMemcpy(d_sceneTriangles, sceneTriangles.data(),
                    numTriangles * sizeof(Triangle),
                    cudaMemcpyHostToDevice);
-        cudaMemcpy(d_cellStart, cellStart.data(),
-                   (numCells + 1) * sizeof(int), cudaMemcpyHostToDevice);
-        if (!flatTriangleIdx.empty()) {
-            cudaMemcpy(d_cellTriangles, flatTriangleIdx.data(),
-                       flatTriangleIdx.size() * sizeof(int), cudaMemcpyHostToDevice);
+        if (!cfg.bruteForce) {
+            cudaMemcpy(d_cellStart, cellStart.data(),
+                       (numCells + 1) * sizeof(int), cudaMemcpyHostToDevice);
+            if (!flatTriangleIdx.empty()) {
+                cudaMemcpy(d_cellTriangles, flatTriangleIdx.data(),
+                           flatTriangleIdx.size() * sizeof(int), cudaMemcpyHostToDevice);
+            }
         }
         auto h2d_end = std::chrono::steady_clock::now();
         stats.h2d_ms = nsToMs(std::chrono::duration_cast<std::chrono::nanoseconds>(h2d_end - h2d_start).count());
@@ -676,8 +689,12 @@ int main(int argc, char** argv) {
 
     cudaFree(d_rayColors);
     cudaFree(d_sceneTriangles);
-    cudaFree(d_cellStart);
-    cudaFree(d_cellTriangles);
+    if (d_cellStart) {
+        cudaFree(d_cellStart);
+    }
+    if (d_cellTriangles) {
+        cudaFree(d_cellTriangles);
+    }
     delete[] rayColors;
 
     if (clock_gettime(CLOCK_REALTIME, &stop) == -1) {
@@ -725,6 +742,7 @@ int main(int argc, char** argv) {
     }
     
     printf("Execution time = %.6f s\n", time);
+    std::cout << sizeof(Triangle) << "\n";
 
     return 0;
 }

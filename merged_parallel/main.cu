@@ -230,7 +230,7 @@ void computeRayColors(Color* rayColors,
     int idx = r * width + c;
 
     // pull camera back and up for a proper 3/4 view of the fluid box
-    Point3 cameraPos = sceneCenter + Vec3(4.0, 6.0, 12.0);
+    Point3 cameraPos = sceneCenter + Vec3(8.0, 6.0, 10.0);
 
     float imagePlaneDistance = 1;
     float theta = PI/4;

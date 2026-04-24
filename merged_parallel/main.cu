@@ -21,7 +21,7 @@
 #include "SPH.h"
 
 #define FRAMES 720
-#define BOXDIMENSION 64
+#define BOXDIMENSION 32
 
 using std::vector;
 

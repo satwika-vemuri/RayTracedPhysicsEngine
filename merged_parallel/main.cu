@@ -14,25 +14,26 @@
 #include <chrono>
 
 
+#include "Vec3.h"
 #include "rayTrace_gpu.h"
 #include "color.h"
 #include "March.h"
 #include "SPH.h"
 
+void initMarchTables();
+void buildScalarField(Particle* d_particles,
+                      int numParticles,
+                      int* hashHead,
+                      int* hashNext);
+
 #define FRAMES 20
-#define BOXDIMENSION 2
+#define BOXDIMENSION 64
 
 using std::vector;
 
 
-
-// Sphere is centered at (500, 500, 500). Camera is along the z axis
 //Phong shading
 
-Color ambient(const HitRecord& pos, SceneConstants scene) {
-    if (!pos.hit) return scene.dark;
-    return scene.surfaceColor * AMBIENT * scene.light.brightness();
-}
 
 __device__
 Color phong(const HitRecord& pos,
@@ -64,120 +65,6 @@ Color phong(const HitRecord& pos,
     return ambientTerm + diffuseTerm + specularTerm;
 }
 
-
-// testing function, thnx AI, slightly improved with AlanAI
-void generateSphere(
-    vector<Point3>& vertexBuffer,
-    vector<uint32_t>& indexBuffer,
-    vector<Vec3>& normalBuffer
-) {
-    int latSteps = 20;
-    int lonSteps = 20;
-
-    double cx = 500.0, cy = 500.0, cz = 500.0;
-    double radius = 200.0;
-
-    for (int i = 0; i <= latSteps; i++) {
-        double theta = PI * i / latSteps;
-
-        for (int j = 0; j <= lonSteps; j++) {
-            double phi = 2.0 * PI * j / lonSteps;
-
-            double x = cx + radius * sin(theta) * cos(phi);
-            double y = cy + radius * sin(theta) * sin(phi);
-            double z = cz + radius * cos(theta);
-
-            vertexBuffer.push_back(Point3{x,y,z});
-
-            double nx = x - cx;
-            double ny = y - cy;
-            double nz = z - cz;
-
-            double len = sqrt(nx * nx + ny * ny + nz * nz);
-            
-
-            normalBuffer.push_back(Vec3{nx, ny, nz}/len);
-        }
-    }
-
-    int stride = lonSteps + 1;
-
-    for (int i = 0; i < latSteps; i++) {
-        for (int j = 0; j < lonSteps; j++) {
-            int v1 = i * stride + j;
-            int v2 = v1 + 1;
-            int v3 = (i + 1) * stride + j;
-            int v4 = v3 + 1;
-
-            indexBuffer.push_back(v1);
-            indexBuffer.push_back(v3);
-            indexBuffer.push_back(v2);
-
-            indexBuffer.push_back(v2);
-            indexBuffer.push_back(v3);
-            indexBuffer.push_back(v4);
-        }
-    }
-}
-
-// testing function part 2 with parameter to create a video
-void generateSphere(
-    vector<Point3>& vertexBuffer,
-    vector<uint32_t>& indexBuffer,
-    vector<Vec3>& normalBuffer,
-    int frame
-) {
-    int latSteps = 20;
-    int lonSteps = 20;
-
-    double cx = 500.0;
-    double baseCy = 500.0;
-    double cz = 500.0;
-    double radius = 200.0;
-
-    // move down each frame
-    double cy = baseCy + frame * -5; 
-
-    for (int i = 0; i <= latSteps; i++) {
-        double theta = PI * i / latSteps;
-
-        for (int j = 0; j <= lonSteps; j++) {
-            double phi = 2.0 * PI * j / lonSteps;
-
-            double x = cx + radius * sin(theta) * cos(phi);
-            double y = cy + radius * sin(theta) * sin(phi);
-            double z = cz + radius * cos(theta);
-
-            vertexBuffer.push_back(Point3{x,y,z});
-
-            double nx = x - cx;
-            double ny = y - cy;
-            double nz = z - cz;
-
-            double len = sqrt(nx*nx + ny*ny + nz*nz);
-            normalBuffer.push_back(Vec3{nx, ny, nz} / len);
-        }
-    }
-
-    int stride = lonSteps + 1;
-
-    for (int i = 0; i < latSteps; i++) {
-        for (int j = 0; j < lonSteps; j++) {
-            int v1 = i * stride + j;
-            int v2 = v1 + 1;
-            int v3 = (i + 1) * stride + j;
-            int v4 = v3 + 1;
-
-            indexBuffer.push_back(v1);
-            indexBuffer.push_back(v3);
-            indexBuffer.push_back(v2);
-
-            indexBuffer.push_back(v2);
-            indexBuffer.push_back(v3);
-            indexBuffer.push_back(v4);
-        }
-    }
-}
 
 Color getAntialiasedColor(int r, int c, Color* rayColors) {
     int valid_count = 0;
@@ -218,7 +105,13 @@ void computeRayColors(Color* rayColors,
                       Triangle* sceneTriangles,
                       int numTriangles,
                       int width,
-                      int height, SceneConstants scene) {
+                      int height, SceneConstants scene,
+                      Vec3 cameraForward,
+                      Vec3 cameraRight,
+                      Vec3 cameraUp,
+                      double planeWidth,
+                      double planeHeight,
+                      Point3 cameraPos) {
     
 
 
@@ -231,25 +124,18 @@ void computeRayColors(Color* rayColors,
 
     // variables for ray tracing
     // FOR CAMERA AT UPPER RIGHT
-    Point3 cameraPos = rightCorner; 
 
     double imagePlaneDistance = 1;
-    double theta = PI/4;
-    double planeHeight = 2 * imagePlaneDistance * tan(theta/2);
-    double planeWidth = ((double)IMAGE_WIDTH / IMAGE_HEIGHT) * planeHeight;
 
-    double u = (c + 0.5) / IMAGE_WIDTH;
-    double v = (r + 0.5) / IMAGE_HEIGHT;
+
+    double u = (c + 0.5) / width;
+    double v = (r + 0.5) / height;
 
     double m_x = (u - 0.5) * planeWidth;
     double m_y = (0.5 - v) * planeHeight;
     double m_z = imagePlaneDistance;
 
-    // redefine camera axises
-    Vec3 cameraForward = (sceneCenter - cameraPos).normalized(); // points the camera to the center of the scene
-    Vec3 sceneUp(0, 1, 0);
-    Vec3 cameraRight = (cross(cameraForward, sceneUp)).normalized(); 
-    Vec3 cameraUp = cross(cameraRight, cameraForward);
+
 
     // camera at top right
     Point3 m = cameraPos + cameraRight * m_x + cameraUp * m_y + cameraForward * m_z;
@@ -258,21 +144,21 @@ void computeRayColors(Color* rayColors,
     
     // ex: rightCorner = (1000, 1000, 1000), sceneCenter = (500, 500, 500), calculate leftCorner to be (0, 0, 0)
 
-    // Original version
+    // new version with 3D DDA
+    int cells[BOXDIMENSION * 3];
+    int numCells = findIntersectingCubes(ray, leftCorner, rightCorner, BOXDIMENSION, cells, 3*BOXDIMENSION);
+    
     HitRecord best;
     best.hit = false;
-
-    for (int i = 0; i < numTriangles; i++) {
-        HitRecord h = mollerTrumbore(ray, sceneTriangles[i]);
-
+    
+    for (int ci = 0; ci < numCells; ci++) {
+        HitRecord h = findIntersectingTriangle(ray, cellTriangles, sceneTriangles, cellStart, cells[ci]);
         if (h.hit && (!best.hit || h.distance < best.distance)) {
             best = h;
         }
     }
-
     rayColors[idx] = phong(best, cameraPos, scene);
     return;
-
 }
 
 
@@ -297,9 +183,7 @@ int main() {
     {sim.BMAX, sim.BMAX, sim.BMAX},
     {sim.BMIN, sim.BMAX, sim.BMAX}
     };
-    static constexpr int boxEdges[12][2] = {
-    {0,1},{1,2},{2,3},{3,0}, {4,5},{5,6},{6,7},{7,4}, {0,4},{1,5},{2,6},{3,7}
-    };
+
     Point3 leftCorner  = boxCorners[0];   // {BMIN, BMIN, BMIN}
     Point3 rightCorner = boxCorners[6];   // {BMAX, BMAX, BMAX}
 
@@ -311,6 +195,41 @@ int main() {
     vector<uint32_t> indexBuffer;
     vector<Vec3> normalBuffer;
     Color* rayColors = new Color[IMAGE_HEIGHT * IMAGE_WIDTH];
+
+    Point3 sceneCenter(0.0, -1.0, 0.0);
+    Point3 cameraPos = sceneCenter + Vec3(8.0, 6.0, 10.0);
+    
+    double imagePlaneDistance = 1.0;
+    
+    Vec3 cameraForward = (sceneCenter - cameraPos).normalized(); // points the camera to the center of the scene
+    Vec3   sceneUp(0, 1, 0);
+    Vec3 cameraRight = (cross(cameraForward, sceneUp)).normalized(); 
+   
+    Vec3 cameraUp = cross(cameraRight, cameraForward);
+    double theta = PI/4;
+    double planeHeight = 2 * imagePlaneDistance * tan(theta/2);
+    double planeWidth = ((double)IMAGE_WIDTH / IMAGE_HEIGHT) * planeHeight;
+
+
+    SceneConstants scene = {
+        Light(Point3(200.0, 100.0, 100.0), Color{1,1,1}, 1.0f),
+        Color{0.05, 0.15, 0.4},
+        Color{0.0, 0.0, 0.0}
+    };
+
+    
+    Color*    d_rayColors;
+    int*      d_cellStart;
+    Triangle* d_sceneTriangles = nullptr;
+    int*      d_cellTriangles  = nullptr;
+    size_t    triCapacity  = 0;
+    size_t    flatCapacity = 0;
+
+
+    int numCells = BOXDIMENSION * BOXDIMENSION * BOXDIMENSION;
+
+    cudaMalloc(&d_rayColors, IMAGE_WIDTH * IMAGE_HEIGHT * sizeof(Color));
+    cudaMalloc(&d_cellStart, (numCells + 1) * sizeof(int));
 
     for(int frame = 0; frame < FRAMES; frame++){
         printf("FRAME: #%d\n", frame);
@@ -331,8 +250,11 @@ int main() {
 	    indexBuffer.clear();
         normalBuffer.clear();
 
-        buildScalarField(sim.getParticles(), (int)sim.particles.size(), sim.getHashHead(), sim.getHashNext());
-        marchCubes(vertexBuffer, indexBuffer, normalBuffer);
+	    buildScalarField(sim.getParticles(),
+                         (int)sim.particles.size(),
+                         sim.getHashHead(),
+                         sim.getHashNext());
+	    marchCubes(vertexBuffer, indexBuffer, normalBuffer);
         printf("\tbuffers created\n");
 
         // file output information
@@ -343,22 +265,12 @@ int main() {
             std::cerr << "Unable to open file";
         }
 
-        // fill buffers with data from test function
-        generateSphere(vertexBuffer, indexBuffer, normalBuffer, frame);
-
-        // place camera
-        Point3 sceneCenter = leftCorner + ((rightCorner-leftCorner)/2);//TODO RN computeCameraPosition(leftCorner, rightCorner);
-
-
         // parse buffer data
         vector<Triangle> sceneTriangles =
             constructSceneTriangles(vertexBuffer, indexBuffer, normalBuffer);
-        
         vector<vector<int>> trianglesPerBox = assignTriangles(sceneTriangles, leftCorner, rightCorner, BOXDIMENSION);
 
         ////// Convert above array into flat array for Cuda ///////
-        int numCells = BOXDIMENSION * BOXDIMENSION * BOXDIMENSION;
-
         vector<int> cellStart(numCells + 1, 0);
         vector<int> flatTriangleIdx;
 
@@ -388,17 +300,19 @@ int main() {
         /*
         CUDA PARALLELIZED SECTION START
         */ 
-        int numTriangles = sceneTriangles.size();
-        Color* d_rayColors;
-        Triangle* d_sceneTriangles;
-        int* d_cellStart;
-        int* d_cellTriangles;
 
-        // allocate
-        cudaMalloc(&d_rayColors, IMAGE_WIDTH * IMAGE_HEIGHT * sizeof(Color));
-        cudaMalloc(&d_sceneTriangles, numTriangles * sizeof(Triangle));
-        cudaMalloc(&d_cellStart, (numCells + 1) * sizeof(int));
-        cudaMalloc(&d_cellTriangles, flatTriangleIdx.size() * sizeof(int));
+        // cuda malloc and cuda free are very expensive minimize use
+        int numTriangles = sceneTriangles.size();
+        if ((size_t)numTriangles > triCapacity) {
+            if (d_sceneTriangles) {cudaFree(d_sceneTriangles);}
+            triCapacity = numTriangles;
+            cudaMalloc(&d_sceneTriangles, triCapacity * sizeof(Triangle));
+        }
+        if (flatTriangleIdx.size() > flatCapacity) {
+            if (d_cellTriangles) cudaFree(d_cellTriangles);
+            flatCapacity = flatTriangleIdx.size();
+            cudaMalloc(&d_cellTriangles, flatCapacity * sizeof(int));
+        }
 
 
         // copy
@@ -411,17 +325,12 @@ int main() {
                 flatTriangleIdx.size() * sizeof(int), cudaMemcpyHostToDevice);
 
 
-        // declare constants
-        SceneConstants scene = {
-            Light(Point3(200.0, 100.0, 100.0), Color{1,1,1}, 1.0f),
-            Color{0.05, 0.15, 0.4},
-            Color{0.0, 0.0, 0.0}
-        };
-
         // launch config
         dim3 blockSize(16, 16);
         dim3 gridSize((IMAGE_WIDTH + 15) / 16,
                     (IMAGE_HEIGHT + 15) / 16);
+
+
 
         computeRayColors<<<gridSize, blockSize>>>(
             d_rayColors,
@@ -434,7 +343,13 @@ int main() {
             numTriangles,
             IMAGE_WIDTH,
             IMAGE_HEIGHT,
-            scene
+            scene,
+            cameraForward,
+            cameraRight,
+            cameraUp,
+            planeWidth,
+            planeHeight,
+            cameraPos
         );
 
         cudaError_t err = cudaDeviceSynchronize();  // <-- THIS catches runtime errors
@@ -442,7 +357,6 @@ int main() {
             std::cout << "CUDA error: " << cudaGetErrorString(err) << std::endl;
         }
 
-        cudaDeviceSynchronize();
         std::cout << cudaGetErrorString(cudaGetLastError()) << std::endl;
 
         // copy back
@@ -465,6 +379,11 @@ int main() {
         printf("Complete.\n");
 
     }
+
+    cudaFree(d_rayColors);
+    cudaFree(d_sceneTriangles);
+    cudaFree(d_cellStart);
+    cudaFree(d_cellTriangles);
     
     
     delete[] rayColors;

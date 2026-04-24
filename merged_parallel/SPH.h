@@ -8,7 +8,7 @@ struct GpuHash {
     static constexpr int HASH_SIZE = 65536;
     int* d_head;
     int* d_next;
-    double cellSize;
+    float cellSize;
 
     __host__ __device__ int cellKey(int ix, int iy, int iz) const {
         constexpr int64_t p1 = 73856093LL;
@@ -31,8 +31,8 @@ struct Particle {
     Vec3 pos;
     Vec3 vel;
     Vec3 acc;
-    double density;
-    double pressure;
+    float density;
+    float pressure;
 };
 
 // 'Weakly Compressible' SPH simulation.
@@ -44,26 +44,26 @@ struct Particle {
 // particles (host vector) is kept in sync after each step() for use by March.cpp.
 class SPH {
 public:
-    static constexpr double H = 0.13;
-    static constexpr double H2 = H * H;
-    static constexpr double RHO0 = 1000.0;
-    static constexpr double SPACING = H * 0.75;
-    static constexpr double MASS = RHO0 * SPACING * SPACING * SPACING;
-    static constexpr double GAMMA = 7.0;
-    static constexpr double C_SOUND = 30.0;
-    static constexpr double B_PRESS = RHO0 * C_SOUND * C_SOUND / GAMMA;
-    static constexpr double MU = 0.13;
-    static constexpr double GRAVITY = 9.81;
-    static constexpr double DT = 0.00025;
-    static constexpr double BMIN = -3.0;
-    static constexpr double BMAX = 3.0;
-    static constexpr double RESTITUTION = 0.4;
+    static constexpr float H = 0.13;
+    static constexpr float H2 = H * H;
+    static constexpr float RHO0 = 1000.0;
+    static constexpr float SPACING = H * 0.75;
+    static constexpr float MASS = RHO0 * SPACING * SPACING * SPACING;
+    static constexpr float GAMMA = 7.0;
+    static constexpr float C_SOUND = 30.0;
+    static constexpr float B_PRESS = RHO0 * C_SOUND * C_SOUND / GAMMA;
+    static constexpr float MU = 0.13;
+    static constexpr float GRAVITY = 9.81;
+    static constexpr float DT = 0.00025;
+    static constexpr float BMIN = -3.0;
+    static constexpr float BMAX = 3.0;
+    static constexpr float RESTITUTION = 0.4;
 
     // kernel constants. can't use std library lol
-    static constexpr double K_PI = 3.14159265358979323846;
-    static constexpr double K_POLY6 = 315.0 / (64.0 * K_PI * H*H*H*H*H*H*H*H*H);
-    static constexpr double K_SPIKY = -45.0 / (K_PI * H*H*H*H*H*H);
-    static constexpr double K_VISC = 45.0 / (K_PI * H*H*H*H*H*H);
+    static constexpr float K_PI = 3.14159265358979323846;
+    static constexpr float K_POLY6 = 315.0 / (64.0 * K_PI * H*H*H*H*H*H*H*H*H);
+    static constexpr float K_SPIKY = -45.0 / (K_PI * H*H*H*H*H*H);
+    static constexpr float K_VISC = 45.0 / (K_PI * H*H*H*H*H*H);
 
     std::vector<Particle> particles; // host copy of particles
 

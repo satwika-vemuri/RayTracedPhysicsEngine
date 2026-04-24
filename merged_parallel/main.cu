@@ -46,8 +46,8 @@ Color phong(const HitRecord& pos,
     Vec3 V = (cameraPos - pos.point).normalized();
     Vec3 R = reflect(L, N);
 
-    double diffuse = fmax(0.0, N.dot(L));
-    double spec    = pow(fmax(0.0, R.dot(V)), SHININESS);
+    float diffuse = fmax(0.0f, N.dot(L));
+    float spec    = pow(fmax(0.0f, R.dot(V)), SHININESS);
 
     Color ambientTerm =
         scene.surfaceColor * AMBIENT * scene.light.brightness();
@@ -74,26 +74,26 @@ void generateSphere(
     int latSteps = 20;
     int lonSteps = 20;
 
-    double cx = 500.0, cy = 500.0, cz = 500.0;
-    double radius = 200.0;
+    float cx = 500.0, cy = 500.0, cz = 500.0;
+    float radius = 200.0;
 
     for (int i = 0; i <= latSteps; i++) {
-        double theta = PI * i / latSteps;
+        float theta = PI * i / latSteps;
 
         for (int j = 0; j <= lonSteps; j++) {
-            double phi = 2.0 * PI * j / lonSteps;
+            float phi = 2.0 * PI * j / lonSteps;
 
-            double x = cx + radius * sin(theta) * cos(phi);
-            double y = cy + radius * sin(theta) * sin(phi);
-            double z = cz + radius * cos(theta);
+            float x = cx + radius * sin(theta) * cos(phi);
+            float y = cy + radius * sin(theta) * sin(phi);
+            float z = cz + radius * cos(theta);
 
             vertexBuffer.push_back(Point3{x,y,z});
 
-            double nx = x - cx;
-            double ny = y - cy;
-            double nz = z - cz;
+            float nx = x - cx;
+            float ny = y - cy;
+            float nz = z - cz;
 
-            double len = sqrt(nx * nx + ny * ny + nz * nz);
+            float len = sqrt(nx * nx + ny * ny + nz * nz);
             
 
             normalBuffer.push_back(Vec3{nx, ny, nz}/len);
@@ -130,31 +130,31 @@ void generateSphere(
     int latSteps = 20;
     int lonSteps = 20;
 
-    double cx = 500.0;
-    double baseCy = 500.0;
-    double cz = 500.0;
-    double radius = 200.0;
+    float cx = 500.0;
+    float baseCy = 500.0;
+    float cz = 500.0;
+    float radius = 200.0;
 
     // move down each frame
-    double cy = baseCy + frame * -5; 
+    float cy = baseCy + frame * -5; 
 
     for (int i = 0; i <= latSteps; i++) {
-        double theta = PI * i / latSteps;
+        float theta = PI * i / latSteps;
 
         for (int j = 0; j <= lonSteps; j++) {
-            double phi = 2.0 * PI * j / lonSteps;
+            float phi = 2.0 * PI * j / lonSteps;
 
-            double x = cx + radius * sin(theta) * cos(phi);
-            double y = cy + radius * sin(theta) * sin(phi);
-            double z = cz + radius * cos(theta);
+            float x = cx + radius * sin(theta) * cos(phi);
+            float y = cy + radius * sin(theta) * sin(phi);
+            float z = cz + radius * cos(theta);
 
             vertexBuffer.push_back(Point3{x,y,z});
 
-            double nx = x - cx;
-            double ny = y - cy;
-            double nz = z - cz;
+            float nx = x - cx;
+            float ny = y - cy;
+            float nz = z - cz;
 
-            double len = sqrt(nx*nx + ny*ny + nz*nz);
+            float len = sqrt(nx*nx + ny*ny + nz*nz);
             normalBuffer.push_back(Vec3{nx, ny, nz} / len);
         }
     }
@@ -233,17 +233,17 @@ void computeRayColors(Color* rayColors,
     // FOR CAMERA AT UPPER RIGHT
     Point3 cameraPos = rightCorner; 
 
-    double imagePlaneDistance = 1;
-    double theta = PI/4;
-    double planeHeight = 2 * imagePlaneDistance * tan(theta/2);
-    double planeWidth = ((double)IMAGE_WIDTH / IMAGE_HEIGHT) * planeHeight;
+    float imagePlaneDistance = 1;
+    float theta = PI/4;
+    float planeHeight = 2 * imagePlaneDistance * tan(theta/2);
+    float planeWidth = ((float)IMAGE_WIDTH / IMAGE_HEIGHT) * planeHeight;
 
-    double u = (c + 0.5) / IMAGE_WIDTH;
-    double v = (r + 0.5) / IMAGE_HEIGHT;
+    float u = (c + 0.5) / IMAGE_WIDTH;
+    float v = (r + 0.5) / IMAGE_HEIGHT;
 
-    double m_x = (u - 0.5) * planeWidth;
-    double m_y = (0.5 - v) * planeHeight;
-    double m_z = imagePlaneDistance;
+    float m_x = (u - 0.5) * planeWidth;
+    float m_y = (0.5 - v) * planeHeight;
+    float m_z = imagePlaneDistance;
 
     // redefine camera axises
     Vec3 cameraForward = (sceneCenter - cameraPos).normalized(); // points the camera to the center of the scene
@@ -280,7 +280,7 @@ void computeRayColors(Color* rayColors,
 int main() {
     // time constants
     struct timespec start, stop; 
-    double time;
+    float time;
     if( clock_gettime(CLOCK_REALTIME, &start) == -1) { perror("clock gettime");}
     
     SPH sim;
@@ -470,7 +470,7 @@ int main() {
     delete[] rayColors;
 
     if( clock_gettime( CLOCK_REALTIME, &stop) == -1 ) { perror("clock gettime");}		
-    time = (stop.tv_sec - start.tv_sec)+ (double)(stop.tv_nsec - start.tv_nsec)/1e9;
+    time = (stop.tv_sec - start.tv_sec)+ (float)(stop.tv_nsec - start.tv_nsec)/1e9;
     
     printf("Execution time = %f sec\n",time);	
 

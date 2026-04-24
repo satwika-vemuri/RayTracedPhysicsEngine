@@ -109,12 +109,12 @@ vector<Triangle> constructSceneTriangles(const vector<Point3>& vertexBuffer, con
 
 // assumes that we are positioning the camera further "back" on the z axis
 Point3 computeCameraPosition(const Point3& leftCorner, const Point3& rightCorner){
-    double D = std::max(std::max(std::abs(rightCorner.x - leftCorner.x),std::abs(rightCorner.y - leftCorner.y)),std::abs(rightCorner.z - leftCorner.z));
+    float D = std::max(std::max(std::abs(rightCorner.x - leftCorner.x),std::abs(rightCorner.y - leftCorner.y)),std::abs(rightCorner.z - leftCorner.z));
     
     // cameraPos = center + (0, 0, -2D)
-    double x = (leftCorner.x + rightCorner.x)/2; 
-    double y = (leftCorner.y + rightCorner.y)/2;
-    double z = (leftCorner.z + rightCorner.z)/2 - 2*D; 
+    float x = (leftCorner.x + rightCorner.x)/2; 
+    float y = (leftCorner.y + rightCorner.y)/2;
+    float z = (leftCorner.z + rightCorner.z)/2 - 2*D; 
     
 
     return Point3(x, y, z);

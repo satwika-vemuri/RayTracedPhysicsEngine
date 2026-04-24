@@ -9,32 +9,32 @@
 #endif
 
 struct Vec3 {
-    double x, y, z;
+    float x, y, z;
 
-    HD Vec3() : x(0.0), y(0.0), z(0.0) {}
-    HD Vec3(double x, double y, double z) : x(x), y(y), z(z) {}
+    HD Vec3() : x(0.0f), y(0.0f), z(0.0f) {}
+    HD Vec3(float x, float y, float z) : x(x), y(y), z(z) {}
 
     HD Vec3 operator+(const Vec3& lhs) const { return {x+lhs.x, y+lhs.y, z+lhs.z}; }
     HD Vec3 operator-(const Vec3& lhs) const { return {x-lhs.x, y-lhs.y, z-lhs.z}; }
-    HD Vec3 operator*(double s) const { return {x*s, y*s, z*s}; }
-    HD Vec3 operator/(double s) const { return {x/s, y/s, z/s}; }
+    HD Vec3 operator*(float s) const { return {x*s, y*s, z*s}; }
+    HD Vec3 operator/(float s) const { return {x/s, y/s, z/s}; }
     HD Vec3 operator-() const { return {-x, -y, -z}; }
 
     HD Vec3& operator+=(const Vec3& lhs) { x += lhs.x; y += lhs.y; z += lhs.z; return *this; }
     HD Vec3& operator-=(const Vec3& lhs) { x -= lhs.x; y -= lhs.y; z -= lhs.z; return *this; }
-    HD Vec3& operator*=(double s) { x *= s; y *= s; z *= s; return *this; }
+    HD Vec3& operator*=(float s) { x *= s; y *= s; z *= s; return *this; }
 
-    HD double dot(const Vec3& lhs) const { return x*lhs.x + y*lhs.y + z*lhs.z; }
-    HD double length2() const { return x*x + y*y + z*z; }
-    HD double length() const { return std::sqrt(x*x + y*y + z*z); }
+    HD float dot(const Vec3& lhs) const { return x*lhs.x + y*lhs.y + z*lhs.z; }
+    HD float length2() const { return x*x + y*y + z*z; }
+    HD float length() const { return sqrtf(x*x + y*y + z*z); }
 
     HD Vec3 normalized() const {
-        double l = length();
-        return l > 1e-8 ? (*this / l) : Vec3(0.0, 0.0, 0.0);
+        float l = length();
+        return l > 1e-8f ? (*this / l) : Vec3(0.0f, 0.0f, 0.0f);
     }
 };
 
-HD inline Vec3 operator*(double s, const Vec3& v) { return v * s; }
+HD inline Vec3 operator*(float s, const Vec3& v) { return v * s; }
 HD inline Vec3 operator*(const Vec3& u, const Vec3& v) { return {u.x*v.x, u.y*v.y, u.z*v.z}; }
 
 HD inline Vec3 cross(const Vec3& u, const Vec3& v) {
@@ -46,7 +46,7 @@ HD inline Vec3 cross(const Vec3& u, const Vec3& v) {
 }
 
 HD inline Vec3 reflect(const Vec3& v, const Vec3& n) {
-    return 2.0 * v.dot(n) * n - v;
+    return 2.0f * v.dot(n) * n - v;
 }
 
 using Point3 = Vec3;

@@ -14,7 +14,7 @@ __constant__ int d_edgeTable[256];
 __constant__ int d_triTable[256][16];
 
 // Density Grid (device side)
-static double*   d_scalar    = nullptr;
+static float*   d_scalar    = nullptr;
 static int*      d_triCounts = nullptr;
 static int*      d_triOffsets= nullptr;
 static Vec3*     d_verts     = nullptr;
@@ -26,24 +26,24 @@ static int       d_maxTris   = 0;
 void initMarchTables() {
     cudaMemcpyToSymbol(d_edgeTable, edgeTable, sizeof(edgeTable));
     cudaMemcpyToSymbol(d_triTable,  triTable,  sizeof(triTable));
-    cudaMalloc(&d_scalar,     (GRID_N+1)*(GRID_N+1)*(GRID_N+1) * sizeof(double));
+    cudaMalloc(&d_scalar,     (GRID_N+1)*(GRID_N+1)*(GRID_N+1) * sizeof(float));
     cudaMalloc(&d_triCounts,  GRID_N*GRID_N*GRID_N * sizeof(int));
     cudaMalloc(&d_triOffsets, GRID_N*GRID_N*GRID_N * sizeof(int));
 }
 
 // Density Grid (host side - kept for CPU helpers in March.h)
-double scalar[GRID_N + 1][GRID_N + 1][GRID_N + 1];
+float scalar[GRID_N + 1][GRID_N + 1][GRID_N + 1];
 
 /*
  * Device version of gradientNormal - same central difference logic
  * as the CPU version in March.h but reads from d_scalar
  */
-__device__ static Vec3 d_gradNormal(Vec3 p, const double* sc) {
+__device__ static Vec3 d_gradNormal(Vec3 p, const float* sc) {
     int S = GRID_N + 1;
     #define GI(x) max(0, min((int)((x - SPH::BMIN) / CELL), GRID_N))
-    double gx = sc[GI(p.x+CELL)*S*S + GI(p.y)*S + GI(p.z)] - sc[GI(p.x-CELL)*S*S + GI(p.y)*S + GI(p.z)];
-    double gy = sc[GI(p.x)*S*S + GI(p.y+CELL)*S + GI(p.z)] - sc[GI(p.x)*S*S + GI(p.y-CELL)*S + GI(p.z)];
-    double gz = sc[GI(p.x)*S*S + GI(p.y)*S + GI(p.z+CELL)] - sc[GI(p.x)*S*S + GI(p.y)*S + GI(p.z-CELL)];
+    float gx = sc[GI(p.x+CELL)*S*S + GI(p.y)*S + GI(p.z)] - sc[GI(p.x-CELL)*S*S + GI(p.y)*S + GI(p.z)];
+    float gy = sc[GI(p.x)*S*S + GI(p.y+CELL)*S + GI(p.z)] - sc[GI(p.x)*S*S + GI(p.y-CELL)*S + GI(p.z)];
+    float gz = sc[GI(p.x)*S*S + GI(p.y)*S + GI(p.z+CELL)] - sc[GI(p.x)*S*S + GI(p.y)*S + GI(p.z-CELL)];
     #undef GI
     return (-Vec3(gx, gy, gz)).normalized();
 }
@@ -54,7 +54,7 @@ __device__ static Vec3 d_gradNormal(Vec3 p, const double* sc) {
  * We compute a density value at each grid corner
  * one thread per grid corner
  */
-__global__ void buildScalarField_kernel(const Particle* particles, int n, GpuHash hash, double* sc) {
+__global__ void buildScalarField_kernel(const Particle* particles, int n, GpuHash hash, float* sc) {
     int i = blockIdx.x * blockDim.x + threadIdx.x;
     int j = blockIdx.y * blockDim.y + threadIdx.y;
     int k = blockIdx.z * blockDim.z + threadIdx.z;
@@ -62,7 +62,7 @@ __global__ void buildScalarField_kernel(const Particle* particles, int n, GpuHas
 
     // Convert grid index -> world-space 3D position
     Vec3 p = {SPH::BMIN + i * CELL, SPH::BMIN + j * CELL, SPH::BMIN + k * CELL};
-    double density = 0.0;
+    float density = 0.0;
 
     int ix = (int)floor(p.x / hash.cellSize);
     int iy = (int)floor(p.y / hash.cellSize);
@@ -77,8 +77,8 @@ __global__ void buildScalarField_kernel(const Particle* particles, int n, GpuHas
             for (int dz = -1; dz <= 1; ++dz) {
                 int pidx = hash.d_head[hash.cellKey(ix+dx, iy+dy, iz+dz)];
                 while (pidx != -1) {
-                    double r2 = (p - particles[pidx].pos).length2();
-                    if (r2 < SPH::H2) { double d = SPH::H2 - r2; density += SPH::K_POLY6*d*d*d; }
+                    float r2 = (p - particles[pidx].pos).length2();
+                    if (r2 < SPH::H2) { float d = SPH::H2 - r2; density += SPH::K_POLY6*d*d*d; }
                     pidx = hash.d_next[pidx];
                 }
             }
@@ -89,7 +89,7 @@ __global__ void buildScalarField_kernel(const Particle* particles, int n, GpuHas
 }
 
 // one thread per boundary face cell
-__global__ void zeroifyBoundary_kernel(double* sc) {
+__global__ void zeroifyBoundary_kernel(float* sc) {
     int a = blockIdx.x * blockDim.x + threadIdx.x;
     int b = blockIdx.y * blockDim.y + threadIdx.y;
     if (a > GRID_N || b > GRID_N) return;
@@ -105,7 +105,7 @@ __global__ void zeroifyBoundary_kernel(double* sc) {
  * and give each cube a safe write offset (no race conditions)
  * one thread per cube
  */
-__global__ void countTriangles_kernel(const double* sc, int* counts) {
+__global__ void countTriangles_kernel(const float* sc, int* counts) {
     int i = blockIdx.x * blockDim.x + threadIdx.x;
     int j = blockIdx.y * blockDim.y + threadIdx.y;
     int k = blockIdx.z * blockDim.z + threadIdx.z;
@@ -113,7 +113,7 @@ __global__ void countTriangles_kernel(const double* sc, int* counts) {
 
     // Read density at all 8 corners of this cube
     int S = GRID_N+1;
-    double d[8] = {
+    float d[8] = {
         sc[ i   *S*S+ j   *S+ k  ], sc[(i+1)*S*S+ j   *S+ k  ],
         sc[(i+1)*S*S+ j   *S+(k+1)], sc[ i   *S*S+ j   *S+(k+1)],
         sc[ i   *S*S+(j+1)*S+ k  ], sc[(i+1)*S*S+(j+1)*S+ k  ],
@@ -136,7 +136,7 @@ __global__ void countTriangles_kernel(const double* sc, int* counts) {
  * Each cube writes its triangles to its pre-computed offset - no races
  * one thread per cube
  */
-__global__ void emitTriangles_kernel(const double* sc, const int* offsets, Vec3* ov, uint32_t* oi, Vec3* on) {
+__global__ void emitTriangles_kernel(const float* sc, const int* offsets, Vec3* ov, uint32_t* oi, Vec3* on) {
     int i = blockIdx.x * blockDim.x + threadIdx.x;
     int j = blockIdx.y * blockDim.y + threadIdx.y;
     int k = blockIdx.z * blockDim.z + threadIdx.z;
@@ -144,7 +144,7 @@ __global__ void emitTriangles_kernel(const double* sc, const int* offsets, Vec3*
 
     // Read density at all 8 corners of this cube to d[0..7]
     int S = GRID_N+1;
-    double d[8] = {
+    float d[8] = {
         sc[ i   *S*S+ j   *S+ k  ], sc[(i+1)*S*S+ j   *S+ k  ],
         sc[(i+1)*S*S+ j   *S+(k+1)], sc[ i   *S*S+ j   *S+(k+1)],
         sc[ i   *S*S+(j+1)*S+ k  ], sc[(i+1)*S*S+(j+1)*S+ k  ],

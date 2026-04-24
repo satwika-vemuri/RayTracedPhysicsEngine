@@ -37,10 +37,11 @@ struct BenchmarkConfig {
     std::string csvPath = "benchmark.csv";
 };
 
+static constexpr int PROGRESS_PRINT_INTERVAL = 60;
+
 struct FrameStats {
     int frame = 0;
     double physics_ms = 0.0;
-    double scalar_ms = 0.0;
     double march_ms = 0.0;
     double tri_construct_ms = 0.0;
     double binning_ms = 0.0;
@@ -67,7 +68,7 @@ static double nsToMs(int64_t ns) {
 
 static void writeCsvHeader(std::ofstream& csv) {
     csv << "frame,box_dimension,substeps,write_frames,bruteforce,include_sphere,"
-           "physics_ms,scalar_ms,march_ms,tri_construct_ms,binning_ms,flatten_ms,"
+           "physics_ms,march_ms,tri_construct_ms,binning_ms,flatten_ms,"
            "h2d_ms,ray_ms,d2h_ms,file_ms,total_ms,"
            "num_particles,num_triangles,flat_triangle_indices,nonempty_cells,"
            "max_tris_per_cell,avg_tris_per_nonempty_cell,duplication_factor,"
@@ -85,7 +86,6 @@ static void writeCsvRow(std::ofstream& csv, const BenchmarkConfig& cfg, const Fr
         << (cfg.bruteForce ? 1 : 0) << ','
         << (cfg.includeSphere ? 1 : 0) << ','
         << s.physics_ms << ','
-        << s.scalar_ms << ','
         << s.march_ms << ','
         << s.tri_construct_ms << ','
         << s.binning_ms << ','
@@ -106,6 +106,69 @@ static void writeCsvRow(std::ofstream& csv, const BenchmarkConfig& cfg, const Fr
         << s.d2h_bytes << ','
         << h2dBw << ','
         << d2hBw << '\n';
+}
+
+static std::string summaryPathFromCsv(const std::string& csvPath) {
+    std::filesystem::path p(csvPath);
+    p.replace_extension(".txt");
+    return p.string();
+}
+
+static void writeSummaryFile(const std::string& path,
+                             const FrameStats& avg,
+                             size_t frameCount,
+                             const BenchmarkConfig& cfg,
+                             float executionTimeSeconds) {
+    std::ofstream out(path, std::ios::out);
+    if (!out.is_open()) {
+        std::cerr << "Failed to open benchmark summary file: " << path << "\n";
+        return;
+    }
+
+    out << "Benchmark Summary\n";
+    out << "  Frames: " << frameCount << "\n";
+    out << "  Mode: " << (cfg.bruteForce ? "bruteforce" : "dda") << "\n";
+    out << "  Box dimension: " << cfg.boxDimension << "\n";
+    out << "  Output frames: " << (cfg.writeFrames ? "enabled" : "disabled") << "\n";
+    out << "  Sphere: " << (cfg.includeSphere ? "enabled" : "disabled") << "\n";
+    out << "  Average timings (ms/frame):\n";
+    out << "    physics: " << avg.physics_ms << "\n";
+    out << "    march:   " << avg.march_ms << "\n";
+    out << "    tri (constructSceneTriangles): " << avg.tri_construct_ms << "\n";
+    out << "    bin (assignTriangles):         " << avg.binning_ms << "\n";
+    out << "    flat:    " << avg.flatten_ms << "\n";
+    out << "    h2d:     " << avg.h2d_ms << "\n";
+    out << "    ray:     " << avg.ray_ms << "\n";
+    out << "    d2h:     " << avg.d2h_ms << "\n";
+    out << "    file:    " << avg.file_ms << "\n";
+    out << "    total:   " << avg.total_ms << "\n";
+    out << "  Average grid quality:\n";
+    out << "    avg triangles/nonempty cell: " << avg.avg_tris_per_nonempty_cell << "\n";
+    out << "    duplication factor:          " << avg.duplication_factor << "\n";
+    out << "Execution time = " << executionTimeSeconds << " s\n";
+}
+
+static void printAverageSummary(const FrameStats& avg, size_t frameCount, const BenchmarkConfig& cfg) {
+    printf("\nBenchmark Summary\n");
+    printf("  Frames: %zu\n", frameCount);
+    printf("  Mode: %s\n", cfg.bruteForce ? "bruteforce" : "dda");
+    printf("  Box dimension: %d\n", cfg.boxDimension);
+    printf("  Output frames: %s\n", cfg.writeFrames ? "enabled" : "disabled");
+    printf("  Sphere: %s\n", cfg.includeSphere ? "enabled" : "disabled");
+    printf("  Average timings (ms/frame):\n");
+    printf("    physics: %.3f\n", avg.physics_ms);
+    printf("    march:   %.3f\n", avg.march_ms);
+    printf("    tri (constructSceneTriangles):     %.3f\n", avg.tri_construct_ms);
+    printf("    bin (assignTriangles):     %.3f\n", avg.binning_ms);
+    printf("    flat:    %.3f\n", avg.flatten_ms);
+    printf("    h2d:     %.3f\n", avg.h2d_ms);
+    printf("    ray:     %.3f\n", avg.ray_ms);
+    printf("    d2h:     %.3f\n", avg.d2h_ms);
+    printf("    file:    %.3f\n", avg.file_ms);
+    printf("    total:   %.3f\n", avg.total_ms);
+    printf("  Average grid quality:\n");
+    printf("    avg triangles/nonempty cell: %.3f\n", avg.avg_tris_per_nonempty_cell);
+    printf("    duplication factor:          %.3f\n", avg.duplication_factor);
 }
 
 static BenchmarkConfig parseArgs(int argc, char** argv) {
@@ -396,7 +459,6 @@ int main(int argc, char** argv) {
            cfg.csvPath.c_str());
 
     for (int frame = 0; frame < cfg.frames; frame++) {
-        printf("FRAME: #%d\n", frame);
         auto frame_start = std::chrono::steady_clock::now();
         FrameStats stats;
         stats.frame = frame;
@@ -411,27 +473,19 @@ int main(int argc, char** argv) {
         stats.physics_ms = nsToMs(physics_elapsed);
         stats.num_particles = sim.particles.size();
 
-        printf("\tdone with the physics\n");
-        printf("\tphysics benchmarking:\n\t\t%ld ns elapsed\n\t\t%ld particles simulated\n\t\t%d substeps\n\t\t~%ld ns/sim step\n",
-               physics_elapsed, sim.particles.size(), cfg.substeps, physics_elapsed / cfg.substeps);
-
         vertexBuffer.clear();
         indexBuffer.clear();
         normalBuffer.clear();
 
-        auto scalar_start = std::chrono::steady_clock::now();
         buildScalarField(sim.getParticles(),
                          (int)sim.particles.size(),
                          sim.getHashHead(),
                          sim.getHashNext());
-        auto scalar_end = std::chrono::steady_clock::now();
-        stats.scalar_ms = nsToMs(std::chrono::duration_cast<std::chrono::nanoseconds>(scalar_end - scalar_start).count());
 
         auto march_start = std::chrono::steady_clock::now();
         marchCubes(vertexBuffer, indexBuffer, normalBuffer);
         auto march_end = std::chrono::steady_clock::now();
         stats.march_ms = nsToMs(std::chrono::duration_cast<std::chrono::nanoseconds>(march_end - march_start).count());
-        printf("\tbuffers created\n");
 
         if (cfg.includeSphere) {
             generateSphere(vertexBuffer, indexBuffer, normalBuffer);
@@ -573,11 +627,6 @@ int main(int argc, char** argv) {
         int64_t ray_elapsed = std::chrono::duration_cast<std::chrono::nanoseconds>(ray_end - ray_start).count();
         stats.ray_ms = nsToMs(ray_elapsed);
 
-        printf("\trender benchmarking:\n\t\t%ld ns elapsed\n\t\t%d rays traced\n",
-               ray_elapsed, IMAGE_WIDTH * IMAGE_HEIGHT);
-
-        std::cout << cudaGetErrorString(cudaGetLastError()) << std::endl;
-
         auto d2h_start = std::chrono::steady_clock::now();
         cudaMemcpy(rayColors, d_rayColors,
                    IMAGE_WIDTH * IMAGE_HEIGHT * sizeof(Color),
@@ -606,17 +655,23 @@ int main(int argc, char** argv) {
         auto frame_end = std::chrono::steady_clock::now();
         stats.total_ms = nsToMs(std::chrono::duration_cast<std::chrono::nanoseconds>(frame_end - frame_start).count());
 
-        printf("\tstage breakdown (ms): physics=%.3f scalar=%.3f march=%.3f tri=%.3f bin=%.3f flat=%.3f h2d=%.3f ray=%.3f d2h=%.3f file=%.3f total=%.3f\n",
-               stats.physics_ms, stats.scalar_ms, stats.march_ms, stats.tri_construct_ms,
-               stats.binning_ms, stats.flatten_ms, stats.h2d_ms, stats.ray_ms,
-               stats.d2h_ms, stats.file_ms, stats.total_ms);
-        printf("\tgrid stats: tris=%zu assigned=%zu dup=%.3f nonempty=%zu avg/cell=%.3f max/cell=%zu mode=%s boxDim=%d\n",
-               stats.num_triangles, stats.flat_triangle_indices, stats.duplication_factor,
-               stats.nonempty_cells, stats.avg_tris_per_nonempty_cell, stats.max_tris_per_cell,
-               cfg.bruteForce ? "bruteforce" : "dda", cfg.boxDimension);
-
         writeCsvRow(csv, cfg, stats);
         allStats.push_back(stats);
+
+        bool shouldPrintProgress =
+            (frame == 0) ||
+            ((frame + 1) % PROGRESS_PRINT_INTERVAL == 0) ||
+            (frame + 1 == cfg.frames);
+        if (shouldPrintProgress) {
+            printf("Progress: frame %d/%d | total=%.3f ms/frame | physics=%.3f ms | ray=%.3f ms | tris=%zu | dup=%.3f\n",
+                   frame + 1,
+                   cfg.frames,
+                   stats.total_ms,
+                   stats.physics_ms,
+                   stats.ray_ms,
+                   stats.num_triangles,
+                   stats.duplication_factor);
+        }
     }
 
     cudaFree(d_rayColors);
@@ -625,11 +680,15 @@ int main(int argc, char** argv) {
     cudaFree(d_cellTriangles);
     delete[] rayColors;
 
+    if (clock_gettime(CLOCK_REALTIME, &stop) == -1) {
+        perror("clock gettime");
+    }
+    time = (stop.tv_sec - start.tv_sec) + (float)(stop.tv_nsec - start.tv_nsec) / 1e9f;
+
     if (!allStats.empty()) {
         FrameStats avg;
         for (const FrameStats& s : allStats) {
             avg.physics_ms += s.physics_ms;
-            avg.scalar_ms += s.scalar_ms;
             avg.march_ms += s.march_ms;
             avg.tri_construct_ms += s.tri_construct_ms;
             avg.binning_ms += s.binning_ms;
@@ -645,7 +704,6 @@ int main(int argc, char** argv) {
 
         double denom = static_cast<double>(allStats.size());
         avg.physics_ms /= denom;
-        avg.scalar_ms /= denom;
         avg.march_ms /= denom;
         avg.tri_construct_ms /= denom;
         avg.binning_ms /= denom;
@@ -658,21 +716,15 @@ int main(int argc, char** argv) {
         avg.avg_tris_per_nonempty_cell /= denom;
         avg.duplication_factor /= denom;
 
-        printf("\naverage benchmark summary (ms): physics=%.3f scalar=%.3f march=%.3f tri=%.3f bin=%.3f flat=%.3f h2d=%.3f ray=%.3f d2h=%.3f file=%.3f total=%.3f\n",
-               avg.physics_ms, avg.scalar_ms, avg.march_ms, avg.tri_construct_ms,
-               avg.binning_ms, avg.flatten_ms, avg.h2d_ms, avg.ray_ms,
-               avg.d2h_ms, avg.file_ms, avg.total_ms);
-        printf("average grid quality: avg/cell=%.3f dup=%.3f over %zu frames\n",
-               avg.avg_tris_per_nonempty_cell, avg.duplication_factor, allStats.size());
+        printAverageSummary(avg, allStats.size(), cfg);
         printf("benchmark csv written to %s\n", cfg.csvPath.c_str());
-    }
 
-    if (clock_gettime(CLOCK_REALTIME, &stop) == -1) {
-        perror("clock gettime");
+        std::string summaryPath = summaryPathFromCsv(cfg.csvPath);
+        writeSummaryFile(summaryPath, avg, allStats.size(), cfg, time);
+        printf("benchmark summary written to %s\n", summaryPath.c_str());
     }
-    time = (stop.tv_sec - start.tv_sec) + (float)(stop.tv_nsec - start.tv_nsec) / 1e9f;
     
-    printf("Execution time = %f sec\n", time);
+    printf("Execution time = %.6f s\n", time);
 
     return 0;
 }

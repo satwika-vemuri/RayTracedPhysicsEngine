@@ -284,6 +284,7 @@ int main() {
     if( clock_gettime(CLOCK_REALTIME, &start) == -1) { perror("clock gettime");}
     
     SPH sim;
+    initMarchTables();
     printf("Number of particles: %ld\n", sim.particles.size());
     // the box outline
     static const Vec3 boxCorners[8] = {
@@ -330,8 +331,8 @@ int main() {
 	    indexBuffer.clear();
         normalBuffer.clear();
 
-	    buildScalarField(sim.particles);
-	    marchCubes(vertexBuffer, indexBuffer, normalBuffer);
+        buildScalarField(sim.getParticles(), (int)sim.particles.size(), sim.getHashHead(), sim.getHashNext());
+        marchCubes(vertexBuffer, indexBuffer, normalBuffer);
         printf("\tbuffers created\n");
 
         // file output information

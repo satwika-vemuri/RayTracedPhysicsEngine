@@ -2,36 +2,6 @@
 #include <cuda_runtime.h>
 #include <cstdio>
 
-/****************************
-*****************************
-** GPU Spatial Hash *********
-*****************************
-****************************/
-
-// atomic linked-list hash that's safe for concurrent insertion via atomicExch
-struct GpuHash {
-    static constexpr int HASH_SIZE = 65536;
-
-    int* d_head;
-    int* d_next;
-    double cellSize;
-
-    __host__ __device__ int cellKey(int ix, int iy, int iz) const {
-        constexpr int64_t p1 = 73856093LL;
-        constexpr int64_t p2 = 19349663LL;
-        constexpr int64_t p3 = 83492791LL;
-        int64_t h = (int64_t)ix * p1 ^ (int64_t)iy * p2 ^ (int64_t)iz * p3;
-        return (int)(h & (int64_t)(HASH_SIZE - 1));
-    }
-
-    __device__ void insert(int idx, const Vec3& pos) {
-        int ix = (int)floor(pos.x / cellSize);
-        int iy = (int)floor(pos.y / cellSize);
-        int iz = (int)floor(pos.z / cellSize);
-        int key = cellKey(ix, iy, iz);
-        d_next[idx] = atomicExch(&d_head[key], idx);
-    }
-};
 
 /****************************
 *****************************

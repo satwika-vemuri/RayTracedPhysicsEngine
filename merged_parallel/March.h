@@ -6,7 +6,8 @@
 #include <algorithm>
 #include <cstdint>
 
-void buildScalarField(const std::vector<Particle> &particles);
+void initMarchTables();
+void buildScalarField(Particle* d_particles, int n, int* d_hashHead, int* d_hashNext);
 void marchCubes(std::vector<Vec3> &vertexBuffer,
                 std::vector<uint32_t> &indexBuffer,
                 std::vector<Vec3> &normalBuffer);
@@ -39,12 +40,11 @@ extern double scalar[GRID_N + 1][GRID_N + 1][GRID_N + 1];
 // Computes worldspace 3d point where isosurface crosses edge between
 // two corners (p1, d1) and (p2, d2)
 // p is positions, d is densities.
-inline Vec3 interp(Vec3 p1, double d1, Vec3 p2, double d2) {
-        // gaurd against div by zero (both corners having same density)
-        if (std::abs(d2 - d1) < 1e-9)
+__host__ __device__ inline Vec3 interp(Vec3 p1, double d1, Vec3 p2, double d2) {
+        if (fabs(d2 - d1) < 1e-9)
                 return p1;
         double t = (ISOVALUE - d1) / (d2 - d1);
-        t = std::max(0.0, std::min(1.0, t));
+        t = fmax(0.0, fmin(1.0, t));
         return p1 + (p2 - p1) * t;
 }
 

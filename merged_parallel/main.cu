@@ -115,63 +115,63 @@ void generateSphere(
 }
 
 // testing function part 2 with parameter to create a video
-void generateSphere(
-    vector<Point3>& vertexBuffer,
-    vector<uint32_t>& indexBuffer,
-    vector<Vec3>& normalBuffer,
-    int frame
-) {
-    int latSteps = 20;
-    int lonSteps = 20;
+// void generateSphere(
+//     vector<Point3>& vertexBuffer,
+//     vector<uint32_t>& indexBuffer,
+//     vector<Vec3>& normalBuffer,
+//     int frame
+// ) {
+//     int latSteps = 20;
+//     int lonSteps = 20;
 
-    float cx = 500.0;
-    float baseCy = 500.0;
-    float cz = 500.0;
-    float radius = 200.0;
+//     float cx = 500.0;
+//     float baseCy = 500.0;
+//     float cz = 500.0;
+//     float radius = 200.0;
 
-    // move down each frame
-    float cy = baseCy + frame * -5;
+//     // move down each frame
+//     float cy = baseCy + frame * -5;
 
-    for (int i = 0; i <= latSteps; i++) {
-        float theta = PI * i / latSteps;
+//     for (int i = 0; i <= latSteps; i++) {
+//         float theta = PI * i / latSteps;
 
-        for (int j = 0; j <= lonSteps; j++) {
-            float phi = 2.0 * PI * j / lonSteps;
+//         for (int j = 0; j <= lonSteps; j++) {
+//             float phi = 2.0 * PI * j / lonSteps;
 
-            float x = cx + radius * sin(theta) * cos(phi);
-            float y = cy + radius * sin(theta) * sin(phi);
-            float z = cz + radius * cos(theta);
+//             float x = cx + radius * sin(theta) * cos(phi);
+//             float y = cy + radius * sin(theta) * sin(phi);
+//             float z = cz + radius * cos(theta);
 
-            vertexBuffer.push_back(Point3{x,y,z});
+//             vertexBuffer.push_back(Point3{x,y,z});
 
-            float nx = x - cx;
-            float ny = y - cy;
-            float nz = z - cz;
+//             float nx = x - cx;
+//             float ny = y - cy;
+//             float nz = z - cz;
 
-            float len = sqrt(nx*nx + ny*ny + nz*nz);
-            normalBuffer.push_back(Vec3{nx, ny, nz} / len);
-        }
-    }
+//             float len = sqrt(nx*nx + ny*ny + nz*nz);
+//             normalBuffer.push_back(Vec3{nx, ny, nz} / len);
+//         }
+//     }
 
-    int stride = lonSteps + 1;
+//     int stride = lonSteps + 1;
 
-    for (int i = 0; i < latSteps; i++) {
-        for (int j = 0; j < lonSteps; j++) {
-            int v1 = i * stride + j;
-            int v2 = v1 + 1;
-            int v3 = (i + 1) * stride + j;
-            int v4 = v3 + 1;
+//     for (int i = 0; i < latSteps; i++) {
+//         for (int j = 0; j < lonSteps; j++) {
+//             int v1 = i * stride + j;
+//             int v2 = v1 + 1;
+//             int v3 = (i + 1) * stride + j;
+//             int v4 = v3 + 1;
 
-            indexBuffer.push_back(v1);
-            indexBuffer.push_back(v3);
-            indexBuffer.push_back(v2);
+//             indexBuffer.push_back(v1);
+//             indexBuffer.push_back(v3);
+//             indexBuffer.push_back(v2);
 
-            indexBuffer.push_back(v2);
-            indexBuffer.push_back(v3);
-            indexBuffer.push_back(v4);
-        }
-    }
-}
+//             indexBuffer.push_back(v2);
+//             indexBuffer.push_back(v3);
+//             indexBuffer.push_back(v4);
+//         }
+//     }
+// }
 
 
 Color getAntialiasedColor(int r, int c, Color* rayColors) {
@@ -293,6 +293,8 @@ int main() {
     // num sub-steps per rendered frame
     constexpr int SUBSTEPS = 20;
 
+    std::vector<unsigned char> pixels(IMAGE_WIDTH * IMAGE_HEIGHT * 3);
+
 
     vector<Point3> vertexBuffer;
     vector<uint32_t> indexBuffer;
@@ -334,6 +336,12 @@ int main() {
     cudaMalloc(&d_rayColors, IMAGE_WIDTH * IMAGE_HEIGHT * sizeof(Color));
     cudaMalloc(&d_cellStart, (numCells + 1) * sizeof(int));
 
+    //timing
+    int64_t total_rtRender_ns = 0;
+    int64_t assign_elapsed = 0;
+    int last_numTriangles = 0;
+    int64_t alias_pack_write_elapsed = 0;
+
     for(int frame = 0; frame < FRAMES; frame++){
         printf("FRAME: #%d\n", frame);
 
@@ -361,21 +369,23 @@ int main() {
         printf("\tbuffers created\n");
 
         // file output information
-        std::ofstream outFile("frames/image" + std::to_string(frame) + ".ppm");
+        std::ofstream outFile("frames/image" + std::to_string(frame) + ".ppm",
+                                std::ios::binary);
         if (outFile.is_open()) {
-            outFile << "P3\n" << IMAGE_WIDTH << ' ' << IMAGE_HEIGHT << "\n255\n";
+            outFile << "P6\n" << IMAGE_WIDTH << ' ' << IMAGE_HEIGHT << "\n255\n";
         } else {
             std::cerr << "Unable to open file";
         }
 
-        // place camera
-        Point3 sceneCenter(0.0, -1.0, 0.0);
-
-
         // parse buffer data
-        vector<Triangle> sceneTriangles =
-            constructSceneTriangles(vertexBuffer, indexBuffer, normalBuffer);
+        auto assign_start = std::chrono::steady_clock::now();
+
+        vector<Triangle> sceneTriangles = constructSceneTriangles(vertexBuffer, indexBuffer, normalBuffer);
         vector<vector<int>> trianglesPerBox = assignTriangles(sceneTriangles, leftCorner, rightCorner, BOXDIMENSION);
+
+        auto assign_end = std::chrono::steady_clock::now();
+        assign_elapsed += std::chrono::duration_cast<std::chrono::nanoseconds>(
+                                assign_end - assign_start).count();
 
         ////// Convert above array into flat array for Cuda ///////
         vector<int> cellStart(numCells + 1, 0);
@@ -438,6 +448,7 @@ int main() {
                     (IMAGE_HEIGHT + 15) / 16);
 
 
+        auto rtRender_start = std::chrono::steady_clock::now();
 
         computeRayColors<<<gridSize, blockSize>>>(
             d_rayColors,
@@ -464,8 +475,20 @@ int main() {
             std::cout << "CUDA error: " << cudaGetErrorString(err) << std::endl;
         }
 
+
+
+        auto rtRender_end = std::chrono::steady_clock::now();
+        int64_t rtRender_elapsed = std::chrono::duration_cast<std::chrono::nanoseconds>(rtRender_end - rtRender_start).count();
+        
+        total_rtRender_ns += rtRender_elapsed;
+        last_numTriangles = (int)sceneTriangles.size();
+
+        printf("\trender benchmarking:\n\t\t%ld ns elapsed\n\t\t%d rays traced\n",
+                rtRender_elapsed, IMAGE_WIDTH * IMAGE_HEIGHT);
+
         std::cout << cudaGetErrorString(cudaGetLastError()) << std::endl;
 
+        auto file_start = std::chrono::steady_clock::now();
         // copy back
         cudaMemcpy(rayColors, d_rayColors,
                 IMAGE_WIDTH * IMAGE_HEIGHT * sizeof(Color),
@@ -475,15 +498,25 @@ int main() {
         CUDA PARALLELIZED SECTION END
         */ 
 
+
+
         for (int r = 0; r < IMAGE_HEIGHT; r++) {
             for (int c = 0; c < IMAGE_WIDTH; c++) {
-                write_Color(outFile, getAntialiasedColor(r, c, rayColors), true);
+                int idx = r * IMAGE_WIDTH + c;
+                Color aa = getAntialiasedColor(r, c, rayColors);
+                pack_Color(&pixels[idx * 3], aa, true);
             }
         }
 
-        outFile.close();
-        printf("\tImage rendered\n");
-        printf("Complete.\n");
+        //trust me bro cast
+        outFile.write(reinterpret_cast<const char*>(pixels.data()), pixels.size());
+        auto file_end = std::chrono::steady_clock::now();
+        int64_t file_elapsed =  std::chrono::duration_cast<std::chrono::nanoseconds>(file_end - file_start).count();
+        alias_pack_write_elapsed += file_elapsed;
+
+        // printf("\tfile write benchmarking:\n\t\t%ld ns elapsed\n", file_elapsed);
+        // printf("\tImage rendered\n");
+        // printf("Complete.\n");
 
     }
 
@@ -497,7 +530,18 @@ int main() {
 
     if( clock_gettime( CLOCK_REALTIME, &stop) == -1 ) { perror("clock gettime");}		
     time = (stop.tv_sec - start.tv_sec)+ (float)(stop.tv_nsec - start.tv_nsec)/1e9;
+
+
+    printf("Total time constructing scene and assigning triangles = %f sec\n",
+            assign_elapsed / 1e9);
+
+    float total_render_sec = total_rtRender_ns / 1e9f;
+    printf("Total render time in GPU = %f sec\n", total_render_sec); 
+
     
+    printf("Total time copying back, packing, antialiasing, and writing pixels in file = %f sec\n",
+            alias_pack_write_elapsed / 1e9);
+
     printf("Execution time = %f sec\n",time);	
 
     return 0;

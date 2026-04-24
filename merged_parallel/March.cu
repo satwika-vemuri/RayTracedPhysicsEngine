@@ -14,7 +14,8 @@ __constant__ int d_edgeTable[256];
 __constant__ int d_triTable[256][16];
 
 // Density Grid (device side)
-static float*   d_scalar    = nullptr;
+static float*   d_scalar     = nullptr;
+static float*   d_scalar_tmp = nullptr;
 static int*      d_triCounts = nullptr;
 static int*      d_triOffsets= nullptr;
 static Vec3*     d_verts     = nullptr;
@@ -27,6 +28,7 @@ void initMarchTables() {
     cudaMemcpyToSymbol(d_edgeTable, edgeTable, sizeof(edgeTable));
     cudaMemcpyToSymbol(d_triTable,  triTable,  sizeof(triTable));
     cudaMalloc(&d_scalar,     (GRID_N+1)*(GRID_N+1)*(GRID_N+1) * sizeof(float));
+    cudaMalloc(&d_scalar_tmp, (GRID_N+1)*(GRID_N+1)*(GRID_N+1) * sizeof(float));
     cudaMalloc(&d_triCounts,  GRID_N*GRID_N*GRID_N * sizeof(int));
     cudaMalloc(&d_triOffsets, GRID_N*GRID_N*GRID_N * sizeof(int));
 }
@@ -97,6 +99,21 @@ __global__ void zeroifyBoundary_kernel(float* sc) {
     sc[0*S*S+a*S+b] = sc[N*S*S+a*S+b] = 0.0;
     sc[a*S*S+0*S+b] = sc[a*S*S+N*S+b] = 0.0;
     sc[a*S*S+b*S+0] = sc[a*S*S+b*S+N] = 0.0;
+}
+
+// one thread per interior grid corner: average with 6 face neighbors
+__global__ void laplacianSmooth_kernel(const float* sc_in, float* sc_out) {
+    int i = blockIdx.x * blockDim.x + threadIdx.x;
+    int j = blockIdx.y * blockDim.y + threadIdx.y;
+    int k = blockIdx.z * blockDim.z + threadIdx.z;
+    if (i < 1 || j < 1 || k < 1 || i >= GRID_N || j >= GRID_N || k >= GRID_N) return;
+
+    int S = GRID_N + 1;
+    float center = sc_in[i*S*S + j*S + k];
+    float sum = sc_in[(i-1)*S*S + j*S + k] + sc_in[(i+1)*S*S + j*S + k]
+              + sc_in[i*S*S + (j-1)*S + k] + sc_in[i*S*S + (j+1)*S + k]
+              + sc_in[i*S*S + j*S + (k-1)] + sc_in[i*S*S + j*S + (k+1)];
+    sc_out[i*S*S + j*S + k] = 0.5f * center + 0.5f * (sum / 6.0f);
 }
 
 /*
@@ -215,6 +232,8 @@ void buildScalarField(Particle* d_particles, int n, int* d_hashHead, int* d_hash
     int numBlocks = (GRID_N + BLOCK) / BLOCK;
     buildScalarField_kernel<<<dim3(numBlocks,numBlocks,numBlocks), dim3(BLOCK,BLOCK,BLOCK)>>>(d_particles, n, hash, d_scalar);
     zeroifyBoundary_kernel<<<dim3((GRID_N+15)/16,(GRID_N+15)/16), dim3(16,16)>>>(d_scalar);
+    laplacianSmooth_kernel<<<dim3(numBlocks,numBlocks,numBlocks), dim3(BLOCK,BLOCK,BLOCK)>>>(d_scalar, d_scalar_tmp);
+    std::swap(d_scalar, d_scalar_tmp);
 }
 
 /*

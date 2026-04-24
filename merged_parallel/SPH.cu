@@ -69,13 +69,13 @@ __global__ void computeDensityPressure_kernel(Particle* particles, int n, GpuHas
         }
     }
 
-    density = fmax(density, SPH::RHO0 * 0.1);
+    density = fmaxf(density, SPH::RHO0 * 0.1f);
     particles[i].density = density;
 
     // tait equation of state from STAR paper
     float ratio = density / SPH::RHO0;
     float r7 = ratio * ratio * ratio * ratio * ratio * ratio * ratio;
-    particles[i].pressure = fmax(0.0f, SPH::B_PRESS * (r7 - 1.0f));
+    particles[i].pressure = fmaxf(0.0f, SPH::B_PRESS * (r7 - 1.0f));
 }
 
 // one thread per particle: compute pressure and viscosity accelerations

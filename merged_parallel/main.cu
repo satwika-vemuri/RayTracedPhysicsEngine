@@ -46,8 +46,8 @@ Color phong(const HitRecord& pos,
     Vec3 V = (cameraPos - pos.point).normalized();
     Vec3 R = reflect(L, N);
 
-    float diffuse = fmax(0.0f, N.dot(L));
-    float spec    = pow(fmax(0.0f, R.dot(V)), SHININESS);
+    float diffuse = fmaxf(0.0f, N.dot(L));
+    float spec    = pow(fmaxf(0.0f, R.dot(V)), SHININESS);
 
     Color ambientTerm =
         scene.surfaceColor * AMBIENT * scene.light.brightness();

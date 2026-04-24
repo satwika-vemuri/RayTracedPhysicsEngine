@@ -44,7 +44,7 @@ __host__ __device__ inline Vec3 interp(Vec3 p1, float d1, Vec3 p2, float d2) {
         if (fabs(d2 - d1) < 1e-9f)
                 return p1;
         float t = (ISOVALUE - d1) / (d2 - d1);
-        t = fmax(0.0, fmin(1.0, t));
+        t = fmaxf(0.0f, fminf(1.0f, t));
         return p1 + (p2 - p1) * t;
 }
 

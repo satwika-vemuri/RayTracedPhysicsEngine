@@ -78,13 +78,16 @@ vector<vector<int>> assignTriangles(vector<Triangle>& sceneTriangles,
         float maxy = fmaxf(a.y, fmaxf(b.y, c.y));
         float maxz = fmaxf(a.z, fmaxf(b.z, c.z));
 
+        constexpr float eps = 1e-5f;
+
         int x_start = (int)std::floor((minx - leftCorner.x) / intervalSize.x);
         int y_start = (int)std::floor((miny - leftCorner.y) / intervalSize.y);
         int z_start = (int)std::floor((minz - leftCorner.z) / intervalSize.z);
 
-        int x_end = (int)std::floor((maxx - leftCorner.x) / intervalSize.x);
-        int y_end = (int)std::floor((maxy - leftCorner.y) / intervalSize.y);
-        int z_end = (int)std::floor((maxz - leftCorner.z) / intervalSize.z);
+        int x_end = (int)std::floor((maxx - leftCorner.x) / intervalSize.x - eps);
+        int y_end = (int)std::floor((maxy - leftCorner.y) / intervalSize.y - eps);
+        int z_end = (int)std::floor((maxz - leftCorner.z) / intervalSize.z - eps);
+
 
         x_start = std::clamp(x_start, 0, boxDimension - 1);
         y_start = std::clamp(y_start, 0, boxDimension - 1);
@@ -94,14 +97,7 @@ vector<vector<int>> assignTriangles(vector<Triangle>& sceneTriangles,
         y_end = std::clamp(y_end, 0, boxDimension - 1);
         z_end = std::clamp(z_end, 0, boxDimension - 1);
 
-        // Add one-cell padding to catch borderline overlaps from float error.
-        x_start = std::max(0, x_start - 1);
-        y_start = std::max(0, y_start - 1);
-        z_start = std::max(0, z_start - 1);
-
-        x_end = std::min(boxDimension - 1, x_end + 1);
-        y_end = std::min(boxDimension - 1, y_end + 1);
-        z_end = std::min(boxDimension - 1, z_end + 1);
+        //Removed extra padding to make faster.
 
         for (int x = x_start; x <= x_end; x++) {
             for (int y = y_start; y <= y_end; y++) {

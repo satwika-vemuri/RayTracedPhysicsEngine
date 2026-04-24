@@ -31,3 +31,20 @@ inline void write_Color(std::ostream& out, const Color& pixel_Color, bool gamma_
     out << rbyte << ' ' << gbyte << ' ' << bbyte << '\n';
 }
 
+inline void pack_Color(unsigned char* out, const Color& pixel_Color, bool gamma_correction = false) {
+    auto r = clamp(pixel_Color.x, 0.0f, 1.0f);
+    auto g = clamp(pixel_Color.y, 0.0f, 1.0f);
+    auto b = clamp(pixel_Color.z, 0.0f, 1.0f);
+
+    if(gamma_correction) {
+        r = std::sqrt(r);
+        g = std::sqrt(g);
+        b = std::sqrt(b);
+    }
+    
+    // Translate the [0,1] component values to the byte range [0,255]. usnigned char is perdect
+    out[0] = (unsigned char)(255.999 * r);
+    out[1] = (unsigned char)(255.999 * g);
+    out[2] = (unsigned char)(255.999 * b);
+}
+

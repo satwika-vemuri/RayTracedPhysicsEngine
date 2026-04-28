@@ -25,6 +25,7 @@ int main() {
     for (int frame = 0; frame < FRAMES; ++frame) {
         auto ps = std::chrono::steady_clock::now();
         for (int s = 0; s < SUBSTEPS; ++s) sim.step();
+        cudaDeviceSynchronize();
         auto pe = std::chrono::steady_clock::now();
         int64_t phys_ns = std::chrono::duration_cast<std::chrono::nanoseconds>(pe - ps).count();
 

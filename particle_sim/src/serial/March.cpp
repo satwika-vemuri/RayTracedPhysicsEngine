@@ -11,7 +11,7 @@
 // TODO: Refactor w more helpers + make more readable
 
 // Density Grid
-double scalar[GRID_N + 1][GRID_N + 1][GRID_N + 1];
+float scalar[GRID_N + 1][GRID_N + 1][GRID_N + 1];
 
 /*
  * Before generating the mesh:
@@ -42,16 +42,16 @@ void buildScalarField(const std::vector<Particle> &particles) {
 
                                 // Sum up each nearby particle's contribution
                                 // using W_poly6.
-                                double density = 0.0;
+                                float density = 0.0f;
                                 for (int pidx : nbrs) {
-                                        double r2 =
+                                        float r2 =
                                             (p - particles[pidx].pos).length2();
-                                        // W_poly6 is defined as: K_POLY6 * (H²-
-                                        // r²)³ when r²<H², else 0. resuse of
+                                        // W_poly6 is defined as: K_POLY6 * (H^2-
+                                        // r^2)^3 when r^2<H^2, else 0. resuse of
                                         // same formula and constant K_POLY6
                                         // from SPH.h
                                         if (r2 < SPH::H2) {
-                                                double d = SPH::H2 - r2;
+                                                float d = SPH::H2 - r2;
                                                 density +=
                                                     SPH::K_POLY6 * d * d * d;
                                         }
@@ -81,7 +81,7 @@ void marchCubes(std::vector<Vec3>& vertexBuffer,
 
                                 // Read density at all 8 corners of this cube to
                                 // d[0..7]
-                                double d[8];
+                                float d[8];
                                 readDensity(d, i, j, k);
 
                                 // Build cubeIndex: set bit N if corner N

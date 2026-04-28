@@ -6,7 +6,7 @@
 
 // grid-based spatial hash for O(1) amortized neighbor lookup
 class SpatialHash {
-    double cellSize;
+    float cellSize;
     std::unordered_map<int64_t, std::vector<int>> table;
 
     // prime mixing to reduce collisions between nearby cells
@@ -18,26 +18,26 @@ class SpatialHash {
     }
 
 public:
-    explicit SpatialHash(double cellSize) : cellSize(cellSize) {
+    explicit SpatialHash(float cellSize) : cellSize(cellSize) {
         table.reserve(4096);
     }
 
     void clear() { table.clear(); }
 
     void insert(int particleIdx, const Vec3& pos) {
-        int ix = std::floor(pos.x / cellSize);
-        int iy = std::floor(pos.y / cellSize);
-        int iz = std::floor(pos.z / cellSize);
+        int ix = (int)floorf(pos.x / cellSize);
+        int iy = (int)floorf(pos.y / cellSize);
+        int iz = (int)floorf(pos.z / cellSize);
         table[cellKey(ix, iy, iz)].push_back(particleIdx);
     }
 
     // fills out with indices of all particles within the radius of pos
-    void query(const Vec3& pos, double radius, std::vector<int>& out) const {
+    void query(const Vec3& pos, float radius, std::vector<int>& out) const {
         out.clear();
-        int ir = std::ceil(radius / cellSize);
-        int ix = std::floor(pos.x / cellSize);
-        int iy = std::floor(pos.y / cellSize);
-        int iz = std::floor(pos.z / cellSize);
+        int ir = (int)ceilf(radius / cellSize);
+        int ix = (int)floorf(pos.x / cellSize);
+        int iy = (int)floorf(pos.y / cellSize);
+        int iz = (int)floorf(pos.z / cellSize);
 
         for (int dx = -ir; dx <= ir; ++dx) {
             for (int dy = -ir; dy <= ir; ++dy) {

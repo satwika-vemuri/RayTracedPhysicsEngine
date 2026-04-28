@@ -17,38 +17,37 @@ void marchCubes(std::vector<Vec3> &vertexBuffer,
 //  How many cells to divide the box into along each axis.
 //  Higher = smoother mesh but slower. 32 is fine to start with.
 //  NOTE: any higher than 64 may be need to be allocated on heap. at 64 ~ 2.2MB
-inline constexpr int GRID_N = 64;
+inline constexpr int GRID_N = 256;
 // length of one voxel cell edge in world units
-// box is 3.0 wide (BMAX - BMIN = 1.5 - (-1.5)), divided by 64 cells
-inline constexpr double CELL = (SPH::BMAX - SPH::BMIN) / GRID_N;
+inline constexpr float CELL = (SPH::BMAX - SPH::BMIN) / GRID_N;
 // The threshold that defines "inside" vs "outside" the surface.
 // If a corner's density is above this, it's inside the water.
 // too low = thick mushy water
 // too high = practically no surface
-inline constexpr double ISOVALUE = 0.5;
+inline constexpr float ISOVALUE = 0.5f;
 // Calculating density on a 3d grid of vertex corners
-// One double per corner vertex
+// One float per corner vertex
 // scalar[i][j][k] = density at world position:
 //   x = BMIN + i * CELL
 //   y = BMIN + j * CELL
 //   z = BMIN + k * CELL
-extern double scalar[GRID_N + 1][GRID_N + 1][GRID_N + 1];
+extern float scalar[GRID_N + 1][GRID_N + 1][GRID_N + 1];
 
 // Helper functions:
 
 // Computes worldspace 3d point where isosurface crosses edge between
 // two corners (p1, d1) and (p2, d2)
 // p is positions, d is densities.
-inline Vec3 interp(Vec3 p1, double d1, Vec3 p2, double d2) {
+inline Vec3 interp(Vec3 p1, float d1, Vec3 p2, float d2) {
         // gaurd against div by zero (both corners having same density)
-        if (std::abs(d2 - d1) < 1e-9)
+        if (fabsf(d2 - d1) < 1e-9f)
                 return p1;
-        double t = (ISOVALUE - d1) / (d2 - d1);
-        t = std::max(0.0, std::min(1.0, t));
+        float t = (ISOVALUE - d1) / (d2 - d1);
+        t = std::max(0.0f, std::min(1.0f, t));
         return p1 + (p2 - p1) * t;
 }
 
-inline void readDensity(double *d, int i, int j, int k) {
+inline void readDensity(float *d, int i, int j, int k) {
         d[0] = scalar[i][j][k];
         d[1] = scalar[i + 1][j][k];
         d[2] = scalar[i + 1][j][k + 1];
@@ -80,12 +79,12 @@ inline void cornersTo3d(Vec3 *c, int i, int j, int k) {
 
 // WIP
 inline Vec3 gradientNormal(Vec3 worldPos) {
-        const double eps =
+        const float eps =
             CELL; // sample one voxel width away in each direction
 
-        // Convert world pos to grid index (approximate — might not land on
+        // Convert world pos to grid index (approximate -- might not land on
         // exact corner)
-        auto sample = [&](Vec3 p) -> double {
+        auto sample = [&](Vec3 p) -> float {
                 // clamp to grid bounds and look up scalar field
                 int gi = std::clamp((int)((p.x - SPH::BMIN) / CELL), 0, GRID_N);
                 int gj = std::clamp((int)((p.y - SPH::BMIN) / CELL), 0, GRID_N);
@@ -126,12 +125,12 @@ inline Vec3 gradientNormal(Vec3 worldPos) {
 inline void zeroifyBoundary() {
         for (int a = 0; a <= GRID_N; ++a) {
                 for (int b = 0; b <= GRID_N; ++b) {
-                        scalar[0][a][b] = 0.0;      // left face   (i = 0)
-                        scalar[GRID_N][a][b] = 0.0; // right face  (i = GRID_N)
-                        scalar[a][0][b] = 0.0;      // bottom face (j = 0)
-                        scalar[a][GRID_N][b] = 0.0; // top face    (j = GRID_N)
-                        scalar[a][b][0] = 0.0;      // back face   (k = 0)
-                        scalar[a][b][GRID_N] = 0.0; // front face  (k = GRID_N)
+                        scalar[0][a][b] = 0.0f;      // left face   (i = 0)
+                        scalar[GRID_N][a][b] = 0.0f; // right face  (i = GRID_N)
+                        scalar[a][0][b] = 0.0f;      // bottom face (j = 0)
+                        scalar[a][GRID_N][b] = 0.0f; // top face    (j = GRID_N)
+                        scalar[a][b][0] = 0.0f;      // back face   (k = 0)
+                        scalar[a][b][GRID_N] = 0.0f; // front face  (k = GRID_N)
                 }
         }
 }

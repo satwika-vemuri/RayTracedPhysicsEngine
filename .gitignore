@@ -36,7 +36,7 @@ cmake-build-*/
 *.json
 
 .cache/
-frames/
+
 
 example_frames/
 

@@ -742,7 +742,6 @@ int main(int argc, char** argv) {
     }
     
     printf("Execution time = %.6f s\n", time);
-    std::cout << sizeof(Triangle) << "\n";
 
     return 0;
 }

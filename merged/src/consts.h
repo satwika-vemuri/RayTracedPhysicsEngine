@@ -9,6 +9,9 @@ using Color = Vec3;
 static const int IMAGE_WIDTH = 600;
 static const int IMAGE_HEIGHT = 800;
 
+// DDA grid dimension (same as parallel)
+static constexpr int BOXDIMENSION = 32;
+
 // math constants
 static const double PI = 3.14159265358979323846;
 

@@ -107,9 +107,7 @@ BFTiming rayTraceBruteForce(
 }
 
 
-// Mirrors the parallel computeRayColors kernel but runs serially on CPU.
-// Returns timing breakdown matching parallel stages:
-//   { construct_ns, assign_ns, flatten_ns, raytrace_ns, filewrite_ns }.
+
 
 struct DDATiming { int64_t construct_ns, assign_ns, flatten_ns, raytrace_ns, filewrite_ns; };
 
